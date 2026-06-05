@@ -3,567 +3,376 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Inventaire Terrain v2.1 — GRDF</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<title>Inventaire Terrain v3.0 — GRDF</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
-  --bleu-nuit:   #0b1630;
-  --bleu-prof:   #0e1e45;
-  --bleu:        #003189;
-  --bleu-vif:    #1455d3;
-  --orange:      #f5820a;
-  --orange-clair:#ff9c2e;
-  --vert:        #18c97a;
-  --rouge:       #e63946;
-  --jaune:       #ffd166;
-  --blanc:       #ffffff;
-  --gris-clair:  #f4f6fb;
-  --gris-bord:   #dde2ef;
-  --texte:       #111827;
-  --texte-doux:  #5b6580;
-  --card-shadow: 0 2px 16px rgba(11,22,48,0.10), 0 1px 4px rgba(11,22,48,0.07);
-  --rayon:       16px;
-  --rayon-sm:    10px;
+  --nuit:    #0b1630;
+  --prof:    #0e1e45;
+  --bleu:    #003189;
+  --vif:     #1455d3;
+  --orange:  #f5820a;
+  --ora2:    #ff9c2e;
+  --vert:    #18c97a;
+  --rouge:   #e63946;
+  --jaune:   #ffd166;
+  --blanc:   #ffffff;
+  --fond:    #f4f6fb;
+  --bord:    #dde2ef;
+  --txt:     #111827;
+  --doux:    #5b6580;
+  --shadow:  0 2px 16px rgba(11,22,48,.10),0 1px 4px rgba(11,22,48,.07);
+  --r:16px; --rs:10px;
 }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Barlow',sans-serif;background:var(--fond);color:var(--txt);display:flex;flex-direction:column}
 
-*, *::before, *::after { box-sizing: border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+/* ── HEADER ── */
+header{
+  background:linear-gradient(135deg,var(--nuit) 0%,var(--prof) 60%,#112258 100%);
+  padding:0 18px;height:58px;display:flex;align-items:center;gap:12px;
+  flex-shrink:0;box-shadow:0 4px 24px rgba(0,0,0,.35);
+  border-bottom:2px solid rgba(245,130,10,.4);z-index:200;
+}
+.logo{width:36px;height:36px;flex-shrink:0;background:var(--orange);border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;color:#fff;
+  box-shadow:0 0 0 3px rgba(245,130,10,.25)}
+.htitle{flex:1}
+.htitle h1{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;color:#fff;letter-spacing:.5px;line-height:1}
+.htitle p{font-size:11px;color:rgba(255,255,255,.45);margin-top:2px}
+.chip{background:rgba(245,130,10,.18);border:1.5px solid rgba(245,130,10,.4);color:var(--ora2);
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;
+  padding:4px 12px;border-radius:20px;white-space:nowrap}
 
-body {
-  font-family: 'Barlow', sans-serif;
-  background: var(--gris-clair);
-  color: var(--texte);
-  min-height: 100vh;
-  overflow-x: hidden;
-}
+/* ── APP LAYOUT ── */
+.app{display:flex;flex:1;overflow:hidden}
 
-/* ═══ HEADER ══════════════════════════════════════════════ */
-header {
-  background: linear-gradient(135deg, var(--bleu-nuit) 0%, var(--bleu-prof) 60%, #112258 100%);
-  padding: 0 20px;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  position: sticky; top:0; z-index:200;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.35);
-  border-bottom: 2px solid rgba(245,130,10,0.4);
-}
-.logo {
-  width:40px; height:40px; flex-shrink:0;
-  background: var(--orange);
-  border-radius: 10px;
-  display:flex; align-items:center; justify-content:center;
-  font-family:'Barlow Condensed',sans-serif;
-  font-weight:800; font-size:20px; color:white;
-  letter-spacing:-1px;
-  box-shadow: 0 0 0 3px rgba(245,130,10,0.25);
-}
-.header-title { flex:1; }
-.header-title h1 {
-  font-family:'Barlow Condensed',sans-serif;
-  font-weight:800; font-size:20px; color:white;
-  letter-spacing:.5px; line-height:1;
-}
-.header-title p { font-size:11.5px; color:rgba(255,255,255,0.5); margin-top:3px; }
-.header-right { display:flex; align-items:center; gap:10px; }
-.chip {
-  background:rgba(245,130,10,0.18);
-  border:1.5px solid rgba(245,130,10,0.4);
-  color: var(--orange-clair);
-  font-family:'Barlow Condensed',sans-serif;
-  font-weight:700; font-size:15px;
-  padding:5px 14px; border-radius:30px;
-  white-space:nowrap;
-}
+/* ── COL SAISIE ── */
+.col-s{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;padding-bottom:32px}
+.col-s::-webkit-scrollbar{width:5px}
+.col-s::-webkit-scrollbar-thumb{background:var(--bord);border-radius:3px}
 
-/* ═══ LAYOUT PRINCIPAL ════════════════════════════════════ */
+/* ── COL HISTORIQUE ── */
+.col-h{width:290px;flex-shrink:0;background:var(--nuit);
+  border-left:1px solid rgba(255,255,255,.07);
+  display:flex;flex-direction:column;overflow:hidden}
+.hh{padding:14px 14px 10px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
+.hh h2{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:15px;
+  color:rgba(255,255,255,.85);letter-spacing:.5px;text-transform:uppercase;
+  display:flex;align-items:center;gap:7px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
+.sbox{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+  border-radius:9px;padding:7px 10px;text-align:center}
+.sbox .v{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:20px;color:var(--orange);line-height:1}
+.sbox .l{font-size:9.5px;color:rgba(255,255,255,.35);margin-top:2px;text-transform:uppercase;letter-spacing:.4px}
+.hscroll{flex:1;overflow-y:auto;padding:9px 10px;display:flex;flex-direction:column;gap:7px}
+.hscroll::-webkit-scrollbar{width:3px}
+.hscroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
+.hcard{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);
+  border-radius:11px;padding:9px;display:flex;gap:9px;align-items:flex-start;
+  animation:sli .25s ease}
+@keyframes sli{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
+.hthumb{width:42px;height:42px;flex-shrink:0;border-radius:7px;overflow:hidden;
+  background:#1a2545;border:1.5px solid rgba(255,255,255,.1);
+  display:flex;align-items:center;justify-content:center;font-size:18px}
+.hthumb img{width:100%;height:100%;object-fit:cover}
+.hinfo{flex:1;min-width:0}
+.hnom{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13.5px;
+  color:rgba(255,255,255,.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hmar{font-size:10.5px;color:rgba(255,255,255,.4);margin-top:1px}
+.hbot{display:flex;align-items:center;justify-content:space-between;margin-top:5px}
+.hqte{background:var(--orange);color:#fff;font-weight:800;font-size:10.5px;
+  border-radius:5px;padding:1px 7px;font-family:'Barlow Condensed',sans-serif}
+.hetat{font-size:10px;font-weight:700}
+.hetat.bon{color:var(--vert)}.hetat.moy{color:var(--jaune)}.hetat.hs{color:var(--rouge)}
+.hdel{background:none;border:none;color:rgba(255,255,255,.18);font-size:13px;
+  cursor:pointer;padding:3px 6px;border-radius:5px;flex-shrink:0;transition:all .15s}
+.hdel:hover{color:var(--rouge);background:rgba(230,57,70,.15)}
+.hempty{text-align:center;padding:36px 16px;color:rgba(255,255,255,.18);font-size:12.5px}
+.hexports{padding:10px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;display:flex;flex-direction:column;gap:7px}
+.bexp{display:flex;align-items:center;justify-content:center;gap:7px;padding:9px;
+  border:none;border-radius:9px;font-family:'Barlow Condensed',sans-serif;
+  font-weight:700;font-size:13.5px;letter-spacing:.3px;cursor:pointer;transition:all .15s}
+.bexp:active{transform:scale(.97)}
+.bpdf{background:rgba(230,57,70,.13);color:var(--rouge);border:1.5px solid rgba(230,57,70,.28)}
+.bpdf:hover{background:var(--rouge);color:#fff}
+.bxl{background:rgba(24,201,122,.1);color:var(--vert);border:1.5px solid rgba(24,201,122,.22)}
+.bxl:hover{background:var(--vert);color:#fff}
+.brow{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.bvide{background:rgba(230,57,70,.07);border:1.5px solid rgba(230,57,70,.18);
+  color:rgba(230,57,70,.65);border-radius:9px;padding:8px;font-family:'Barlow Condensed',sans-serif;
+  font-weight:700;font-size:12.5px;cursor:pointer;width:100%;transition:all .15s}
+.bvide:hover{background:rgba(230,57,70,.15);color:var(--rouge)}
+.ver{text-align:center;font-size:10px;color:rgba(255,255,255,.15);padding:6px 0 10px;font-family:'Barlow Condensed',sans-serif}
 
-/* ── PC & tablette paysage (≥ 900px) ── */
-@media (min-width: 900px) {
-  .app-layout {
-    display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: 0;
-    align-items: start;        /* important : pas d'étirement forcé */
-  }
-  .col-saisie {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    /* scroll naturel : PAS de max-height, PAS d'overflow */
-    overflow: visible;
-    padding-bottom: 40px;
-  }
-  .col-historique {
-    background: var(--bleu-nuit);
-    border-left: 1px solid rgba(255,255,255,0.07);
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 64px);   /* panel fixe à droite uniquement */
-    position: sticky;
-    top: 64px;
-    overflow: hidden;
-  }
-}
+/* ── CARD ── */
+.card{background:var(--blanc);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.ch{padding:12px 16px;display:flex;align-items:center;gap:9px;
+  border-bottom:1px solid var(--bord);
+  background:linear-gradient(90deg,#f9fafd,var(--blanc))}
+.chi{width:30px;height:30px;background:linear-gradient(135deg,var(--bleu),var(--vif));
+  border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ch h2{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;
+  letter-spacing:.5px;text-transform:uppercase;color:var(--bleu)}
+.sbadge{margin-left:auto;background:var(--bleu);color:#fff;
+  font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:12px;
+  width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.cb{padding:16px}
 
-/* ── Tablette portrait (600–899px) ── */
-@media (min-width: 600px) and (max-width: 899px) {
-  .app-layout {
-    display: flex;
-    flex-direction: column;
-  }
-  .col-saisie {
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding-bottom: 20px;
-  }
-  .col-historique {
-    background: var(--bleu-nuit);
-    border-left: none;
-    border-top: 2px solid rgba(245,130,10,0.35);
-    display: flex;
-    flex-direction: column;
-    max-height: 480px;
-    position: static;
-    overflow: hidden;
-  }
-}
+/* ── ZONE PHOTO + OUTILS ── */
+.photo-wrap{position:relative;width:100%;background:linear-gradient(145deg,#0d1933,#162040);
+  border-radius:11px;overflow:hidden;border:2px solid rgba(20,85,211,.2);
+  box-shadow:inset 0 2px 20px rgba(0,0,0,.3)}
+#canvas-main{display:block;width:100%;cursor:crosshair;touch-action:none;user-select:none}
+.ph-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;color:rgba(255,255,255,.22);pointer-events:none}
+.ph-placeholder .ico{font-size:44px;opacity:.4}
+.ph-placeholder p{font-size:13px}
 
-/* ── Mobile portrait (< 600px) ── */
-@media (max-width: 599px) {
-  .app-layout {
-    display: flex;
-    flex-direction: column;
-  }
-  .col-saisie {
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding-bottom: 20px;
-  }
-  .col-historique {
-    background: var(--bleu-nuit);
-    border-left: none;
-    border-top: 2px solid rgba(245,130,10,0.35);
-    display: flex;
-    flex-direction: column;
-    max-height: 420px;
-    position: static;
-    overflow: hidden;
-  }
-}
-.hist-header {
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  flex-shrink:0;
-}
-.hist-header h2 {
-  font-family:'Barlow Condensed',sans-serif;
-  font-weight:800; font-size:16px;
-  color:rgba(255,255,255,0.85);
-  letter-spacing:.5px;
-  text-transform:uppercase;
-  display:flex; align-items:center; gap:8px;
-}
-.hist-stats {
-  display:grid; grid-template-columns:1fr 1fr;
-  gap:8px; margin-top:12px;
-}
-.stat-box {
-  background:rgba(255,255,255,0.05);
-  border:1px solid rgba(255,255,255,0.08);
-  border-radius:10px;
-  padding:8px 12px;
-  text-align:center;
-}
-.stat-box .val {
-  font-family:'Barlow Condensed',sans-serif;
-  font-weight:800; font-size:22px; color:var(--orange);
-  line-height:1;
-}
-.stat-box .lbl { font-size:10px; color:rgba(255,255,255,0.4); margin-top:3px; text-transform:uppercase; letter-spacing:.5px; }
+/* Rectangle sélection OCR */
+#sel-rect{position:absolute;border:2.5px solid var(--orange);
+  background:rgba(245,130,10,.1);display:none;pointer-events:none;border-radius:3px}
+#sel-rect::before,#sel-rect::after{content:'';position:absolute;width:10px;height:10px;border-color:var(--ora2);border-style:solid}
+#sel-rect::before{top:-2px;left:-2px;border-width:3px 0 0 3px;border-radius:3px 0 0 0}
+#sel-rect::after{bottom:-2px;right:-2px;border-width:0 3px 3px 0;border-radius:0 0 3px 0}
 
-.hist-scroll {
-  flex:1;
-  overflow-y:auto;
-  padding:10px 12px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-.hist-scroll::-webkit-scrollbar { width:4px; }
-.hist-scroll::-webkit-scrollbar-track { background:transparent; }
-.hist-scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.12); border-radius:4px; }
+/* Poignées de recadrage */
+.crop-overlay{position:absolute;inset:0;display:none;pointer-events:none}
+.crop-overlay.active{display:block}
+.crop-dim{position:absolute;background:rgba(0,0,0,.55)}
+.crop-box{position:absolute;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
+.crop-handle{position:absolute;width:16px;height:16px;background:#fff;border-radius:3px;
+  pointer-events:all;cursor:pointer;border:2px solid rgba(0,0,0,.3)}
 
-/* Carte historique */
-.hist-card {
-  background:rgba(255,255,255,0.06);
-  border:1px solid rgba(255,255,255,0.08);
-  border-radius:12px;
-  padding:10px;
-  display:flex;
-  gap:10px;
-  align-items:flex-start;
-  animation: slideIn .25s ease;
-  cursor:pointer;
-  transition:background .15s;
-}
-.hist-card:hover { background:rgba(255,255,255,0.10); }
-@keyframes slideIn {
-  from { opacity:0; transform:translateX(16px); }
-  to   { opacity:1; transform:translateX(0); }
-}
-.hist-thumb {
-  width:44px; height:44px; flex-shrink:0;
-  border-radius:8px;
-  object-fit:cover;
-  border:1.5px solid rgba(255,255,255,0.1);
-  background:#1a2545;
-  display:flex; align-items:center; justify-content:center;
-  font-size:20px;
-  overflow:hidden;
-}
-.hist-thumb img { width:100%; height:100%; object-fit:cover; }
-.hist-info { flex:1; min-width:0; }
-.hist-nom {
-  font-family:'Barlow Condensed',sans-serif;
-  font-weight:700; font-size:14px;
-  color:rgba(255,255,255,0.9);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-}
-.hist-marque { font-size:11px; color:rgba(255,255,255,0.45); margin-top:2px; }
-.hist-bottom { display:flex; align-items:center; justify-content:space-between; margin-top:6px; }
-.hist-qte {
-  background:var(--orange);
-  color:white; font-weight:800;
-  font-size:11px; border-radius:6px;
-  padding:2px 8px;
-  font-family:'Barlow Condensed',sans-serif;
-}
-.hist-etat { font-size:10px; font-weight:700; }
-.hist-etat.bon   { color:var(--vert); }
-.hist-etat.moyen { color:var(--jaune); }
-.hist-etat.hs    { color:var(--rouge); }
-.hist-del {
-  background:none; border:none;
-  color:rgba(255,255,255,0.2);
-  font-size:14px; cursor:pointer;
-  padding:4px; border-radius:6px;
-  flex-shrink:0;
-  transition:color .15s, background .15s;
-}
-.hist-del:hover { color:var(--rouge); background:rgba(230,57,70,0.15); }
+/* ── BARRE OUTILS PHOTO ── */
+.toolbar{display:flex;align-items:center;gap:7px;margin-top:10px;flex-wrap:wrap}
+.tb{display:flex;align-items:center;justify-content:center;gap:5px;
+  padding:9px 13px;border:none;border-radius:var(--rs);
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13.5px;
+  letter-spacing:.3px;cursor:pointer;transition:all .15s;flex:1;min-width:fit-content}
+.tb:active{transform:scale(.95)}
+.tb-cam{background:linear-gradient(135deg,var(--bleu),var(--vif));color:#fff;
+  box-shadow:0 3px 12px rgba(20,85,211,.3)}
+.tb-gal{background:var(--fond);color:var(--txt);border:1.5px solid var(--bord)}
+.tb-rot{background:#1e2d50;color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.12)}
+.tb-crop{background:#1e2d50;color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.12)}
+.tb-crop.active{background:var(--orange);color:#fff;border-color:var(--orange)}
+.tb-valid{background:linear-gradient(135deg,#15a866,var(--vert));color:#fff;
+  box-shadow:0 3px 12px rgba(24,201,122,.3)}
+.tb-cancel{background:rgba(230,57,70,.12);color:var(--rouge);border:1.5px solid rgba(230,57,70,.25)}
+.tool-sep{width:1px;height:28px;background:var(--bord);flex:none}
 
-.hist-empty {
-  text-align:center;
-  padding:40px 20px;
-  color:rgba(255,255,255,0.2);
-  font-size:13px;
-}
-.hist-empty svg { opacity:.2; margin-bottom:10px; }
+/* Mode crop — boutons confirm/annuler */
+.crop-actions{display:none;gap:8px;margin-top:8px}
+.crop-actions.show{display:flex}
 
-/* Exports bas historique */
-.hist-exports {
-  padding:12px;
-  border-top:1px solid rgba(255,255,255,0.08);
-  display:flex; flex-direction:column; gap:8px;
-  flex-shrink:0;
-}
-.btn-export {
-  display:flex; align-items:center; justify-content:center;
-  gap:8px; padding:10px;
-  border:none; border-radius:10px;
-  font-family:'Barlow Condensed',sans-serif;
-  font-weight:700; font-size:14px; letter-spacing:.3px;
-  cursor:pointer; transition:all .15s;
-}
-.btn-export:active { transform:scale(.97); }
-.btn-export-pdf  { background:rgba(230,57,70,0.15); color:var(--rouge); border:1.5px solid rgba(230,57,70,0.3); }
-.btn-export-pdf:hover { background:var(--rouge); color:white; }
-.btn-export-xl   { background:rgba(24,201,122,0.12); color:var(--vert); border:1.5px solid rgba(24,201,122,0.25); }
-.btn-export-xl:hover  { background:var(--vert); color:white; }
-.btn-export-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+/* OCR hint + status */
+.ocr-hint{background:linear-gradient(90deg,#fff8ed,#fffdf5);border:1.5px solid #f5c55a;
+  border-radius:9px;padding:9px 13px;font-size:12px;color:#7a4700;margin-top:10px;
+  display:none;line-height:1.5}
+.ocr-hint strong{color:#c06000}
+#ocr-status{font-size:12px;font-weight:600;color:var(--vif);margin-top:7px;min-height:16px;display:none}
 
-/* ═══ CARDS ════════════════════════════════════════════════ */
-.card {
-  background:var(--blanc);
-  border-radius:var(--rayon);
-  box-shadow:var(--card-shadow);
-  overflow:hidden;
-}
-.card-header {
-  padding:13px 18px;
-  display:flex; align-items:center; gap:10px;
-  border-bottom:1px solid var(--gris-bord);
-  background:linear-gradient(90deg, #f9fafd 0%, var(--blanc) 100%);
-}
-.card-header-icon {
-  width:32px; height:32px;
-  background:linear-gradient(135deg,var(--bleu),var(--bleu-vif));
-  border-radius:8px;
-  display:flex; align-items:center; justify-content:center;
-}
-.card-header h2 {
-  font-family:'Barlow Condensed',sans-serif;
-  font-weight:800; font-size:15px;
-  letter-spacing:.5px; text-transform:uppercase;
-  color:var(--bleu);
-}
-.step-badge {
-  margin-left:auto;
-  background:var(--bleu);
-  color:white;
-  font-family:'Barlow Condensed',sans-serif;
-  font-weight:800; font-size:13px;
-  width:26px; height:26px;
-  border-radius:50%;
-  display:flex; align-items:center; justify-content:center;
-}
-.card-body { padding:18px; }
+/* Aperçu OCR crop */
+#ocr-preview-wrap{display:none;margin-top:8px;background:#f0f2f7;border-radius:8px;
+  padding:8px;border:1.5px solid var(--bord)}
+#ocr-preview-wrap p{font-size:10.5px;color:var(--doux);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+#ocr-preview{max-width:100%;max-height:80px;border-radius:5px;display:block;image-rendering:pixelated}
 
-/* ═══ ZONE PHOTO ═══════════════════════════════════════════ */
-#zone-photo {
-  width:100%;
-  aspect-ratio:16/9;
-  background:linear-gradient(145deg,#0d1933,#162040);
-  border-radius:12px;
-  overflow:hidden;
-  position:relative;
-  cursor:crosshair;
-  user-select:none;
-  touch-action:none;
-  border:2px solid rgba(20,85,211,0.2);
-  box-shadow:inset 0 2px 20px rgba(0,0,0,0.3);
-}
-#photo-preview { width:100%; height:100%; object-fit:contain; display:none; }
-.photo-placeholder {
-  position:absolute; inset:0;
-  display:flex; flex-direction:column;
-  align-items:center; justify-content:center;
-  gap:12px; color:rgba(255,255,255,0.25);
-}
-.photo-placeholder .big-icon { font-size:48px; opacity:.4; }
-.photo-placeholder p { font-size:13px; }
+/* ── FORMULAIRE ── */
+.fg{display:grid;gap:13px}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.fr3{display:grid;grid-template-columns:1fr 1fr 72px;gap:11px}
+label{font-size:10.5px;font-weight:700;color:var(--doux);letter-spacing:.4px;text-transform:uppercase;display:block;margin-bottom:4px}
+.iw{position:relative}
+input,select,textarea{width:100%;padding:10px 13px;border:1.5px solid var(--bord);
+  border-radius:var(--rs);font-size:14.5px;color:var(--txt);font-family:'Barlow',sans-serif;
+  background:var(--fond);outline:none;transition:all .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--vif);background:#fff;
+  box-shadow:0 0 0 3px rgba(20,85,211,.07)}
+input[type="number"]{-moz-appearance:textfield}
+.opill{position:absolute;right:9px;top:50%;transform:translateY(-50%);
+  background:var(--orange);color:#fff;font-size:9px;font-weight:800;
+  padding:2px 7px;border-radius:5px;letter-spacing:.4px;display:none;
+  font-family:'Barlow Condensed',sans-serif;animation:pop .2s ease}
+@keyframes pop{from{transform:translateY(-50%) scale(.6);opacity:0}to{transform:translateY(-50%) scale(1);opacity:1}}
+.opill.on{display:block}
+.badd{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;
+  border:none;border-radius:var(--rs);font-family:'Barlow Condensed',sans-serif;
+  font-weight:700;font-size:15px;letter-spacing:.3px;cursor:pointer;
+  background:linear-gradient(135deg,#15a866,var(--vert));color:#fff;
+  box-shadow:0 4px 14px rgba(24,201,122,.3);transition:all .15s;flex:1}
+.badd:active{transform:scale(.97)}
+.breset{display:flex;align-items:center;justify-content:center;padding:13px 15px;
+  border:1.5px solid var(--bord);border-radius:var(--rs);background:var(--fond);
+  color:var(--doux);cursor:pointer;transition:all .15s}
+.breset:active{transform:scale(.97)}
+.brow2{display:flex;gap:9px;margin-top:4px}
 
-#selection-rect {
-  position:absolute;
-  border:2.5px solid var(--orange);
-  background:rgba(245,130,10,0.12);
-  box-shadow:0 0 0 1px rgba(245,130,10,0.3), inset 0 0 20px rgba(245,130,10,0.05);
-  display:none;
-  pointer-events:none;
-  border-radius:4px;
-}
-/* Coins OCR */
-#selection-rect::before,
-#selection-rect::after {
-  content:'';
-  position:absolute;
-  width:12px; height:12px;
-  border-color:var(--orange-clair);
-  border-style:solid;
-}
-#selection-rect::before { top:-2px; left:-2px; border-width:3px 0 0 3px; border-radius:3px 0 0 0; }
-#selection-rect::after  { bottom:-2px; right:-2px; border-width:0 3px 3px 0; border-radius:0 0 3px 0; }
-
-/* Boutons photo */
-.btn-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
-.btn {
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  padding:13px 16px; border:none; border-radius:var(--rayon-sm);
-  font-family:'Barlow Condensed',sans-serif;
-  font-weight:700; font-size:15px; letter-spacing:.3px;
-  cursor:pointer; transition:all .15s;
-}
-.btn:active { transform:scale(.96); }
-.btn-cam  { background:linear-gradient(135deg,var(--bleu),var(--bleu-vif)); color:white; box-shadow:0 4px 14px rgba(20,85,211,0.3); }
-.btn-gal  { background:var(--gris-clair); color:var(--texte); border:1.5px solid var(--gris-bord); }
-.btn-add  { background:linear-gradient(135deg,#15a866,var(--vert)); color:white; box-shadow:0 4px 14px rgba(24,201,122,0.3); padding:14px; font-size:16px; }
-.btn-reset{ background:var(--gris-clair); color:var(--texte-doux); border:1.5px solid var(--gris-bord); padding:14px 18px; }
-.btn-add-row { display:grid; grid-template-columns:1fr auto; gap:10px; margin-top:6px; }
-
-/* OCR hint */
-.ocr-hint {
-  background:linear-gradient(90deg,#fff8ed,#fffdf5);
-  border:1.5px solid #f5c55a;
-  border-radius:10px;
-  padding:10px 14px;
-  font-size:12.5px; color:#7a4700;
-  margin-top:12px;
-  display:none;
-  line-height:1.5;
-}
-.ocr-hint strong { color:#c06000; }
-
-#ocr-status {
-  font-size:12px; font-weight:600;
-  color:var(--bleu-vif);
-  margin-top:8px; min-height:18px;
-  display:none;
-}
-
-/* ═══ FORMULAIRE ═══════════════════════════════════════════ */
-.form-grid { display:grid; gap:14px; }
-.form-row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.form-row3 { display:grid; grid-template-columns:1fr 1fr 80px; gap:12px; }
-
-label {
-  font-size:11px; font-weight:700;
-  color:var(--texte-doux);
-  letter-spacing:.5px; text-transform:uppercase;
-  display:block; margin-bottom:5px;
-}
-
-.input-wrap { position:relative; }
-input, select, textarea {
-  width:100%; padding:11px 14px;
-  border:1.5px solid var(--gris-bord);
-  border-radius:var(--rayon-sm);
-  font-size:15px; color:var(--texte);
-  font-family:'Barlow',sans-serif;
-  background:var(--gris-clair);
-  outline:none; transition:all .15s;
-}
-input:focus, select:focus, textarea:focus {
-  border-color:var(--bleu-vif);
-  background:white;
-  box-shadow:0 0 0 3px rgba(20,85,211,0.08);
-}
-input[type="number"] { -moz-appearance:textfield; }
-
-.ocr-pill {
-  position:absolute; right:10px; top:50%; transform:translateY(-50%);
-  background:var(--orange); color:white;
-  font-size:9.5px; font-weight:800;
-  padding:2px 8px; border-radius:6px;
-  letter-spacing:.5px; display:none;
-  font-family:'Barlow Condensed',sans-serif;
-  animation: popIn .2s ease;
-}
-@keyframes popIn { from { transform:translateY(-50%) scale(.7); opacity:0; } to { transform:translateY(-50%) scale(1); opacity:1; } }
-.ocr-pill.on { display:block; }
-
-
-/* ═══ TOAST ════════════════════════════════════════════════ */
-#toast {
-  position:fixed; bottom:24px; left:50%;
+/* ── TOAST ── */
+#toast{position:fixed;bottom:22px;left:50%;
   transform:translateX(-50%) translateY(80px);
-  background:var(--bleu-nuit);
-  color:white; border:1px solid rgba(255,255,255,0.12);
-  padding:12px 24px; border-radius:30px;
-  font-size:14px; font-weight:600;
-  box-shadow:0 8px 32px rgba(0,0,0,0.4);
+  background:var(--nuit);color:#fff;border:1px solid rgba(255,255,255,.12);
+  padding:11px 22px;border-radius:28px;font-size:13.5px;font-weight:600;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
   transition:transform .3s cubic-bezier(.34,1.56,.64,1);
-  z-index:999; white-space:nowrap;
-  font-family:'Barlow Condensed',sans-serif;
-  letter-spacing:.3px;
+  z-index:999;white-space:nowrap;font-family:'Barlow Condensed',sans-serif;letter-spacing:.3px}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:800px){
+  html,body{height:auto;overflow:auto}
+  .app{flex-direction:column;overflow:visible}
+  .col-s{overflow:visible;padding-bottom:20px}
+  .col-h{width:100%;border-left:none;border-top:2px solid rgba(245,130,10,.3);
+    max-height:460px;overflow:hidden}
 }
-#toast.show { transform:translateX(-50%) translateY(0); }
+@media(max-width:500px){
+  .fr3{grid-template-columns:1fr 1fr;gap:9px}
+  .fr3>:last-child{grid-column:1/-1}
+  .toolbar{gap:5px}
+  .tb{padding:8px 9px;font-size:12.5px}
+}
 
-/* version */
-.ver { text-align:center; font-size:11px; color:rgba(255,255,255,0.2); padding:10px 0 16px; font-family:'Barlow Condensed',sans-serif; }
-
-#input-camera { display:none; }
+#input-file{display:none}
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
 <header>
   <div class="logo">G</div>
-  <div class="header-title">
+  <div class="htitle">
     <h1>Inventaire Terrain</h1>
-    <p id="header-date"></p>
+    <p id="hdate"></p>
   </div>
-  <div class="header-right">
-    <div class="chip" id="chip-count">0 article</div>
-  </div>
+  <div class="chip" id="chip">0 article</div>
 </header>
 
-<div class="app-layout">
+<div class="app">
 
-  <!-- ═══ COLONNE GAUCHE : SAISIE ════════════════════════ -->
-  <div class="col-saisie">
+  <!-- ═══ COLONNE SAISIE ═══════════════════════════════════ -->
+  <div class="col-s">
 
     <!-- ÉTAPE 1 : PHOTO -->
     <div class="card">
-      <div class="card-header">
-        <div class="card-header-icon">
-          <svg width="16" height="16" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        </div>
-        <h2>Photo & Reconnaissance OCR</h2>
-        <div class="step-badge">1</div>
+      <div class="ch">
+        <div class="chi"><svg width="15" height="15" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+        <h2>Photo & OCR</h2>
+        <div class="sbadge">1</div>
       </div>
-      <div class="card-body">
-        <div id="zone-photo">
-          <div class="photo-placeholder" id="ph-placeholder">
-            <div class="big-icon">📷</div>
+      <div class="cb">
+
+        <!-- Canvas principal -->
+        <div class="photo-wrap" id="photo-wrap">
+          <canvas id="canvas-main" width="800" height="450"></canvas>
+          <div class="ph-placeholder" id="placeholder">
+            <div class="ico">📷</div>
             <p>Prenez une photo pour commencer</p>
           </div>
-          <img id="photo-preview" src="" alt="">
-          <div id="selection-rect"></div>
+          <div id="sel-rect"></div>
+          <!-- Overlay recadrage -->
+          <div class="crop-overlay" id="crop-overlay">
+            <div class="crop-dim" id="cd-top"></div>
+            <div class="crop-dim" id="cd-bot"></div>
+            <div class="crop-dim" id="cd-left"></div>
+            <div class="crop-dim" id="cd-right"></div>
+            <div class="crop-box" id="crop-box">
+              <div class="crop-handle" id="ch-tl" style="top:-8px;left:-8px;cursor:nw-resize"></div>
+              <div class="crop-handle" id="ch-tr" style="top:-8px;right:-8px;cursor:ne-resize"></div>
+              <div class="crop-handle" id="ch-bl" style="bottom:-8px;left:-8px;cursor:sw-resize"></div>
+              <div class="crop-handle" id="ch-br" style="bottom:-8px;right:-8px;cursor:se-resize"></div>
+            </div>
+          </div>
         </div>
 
-        <div class="ocr-hint" id="ocr-hint">
-          ✦ <strong>OCR actif</strong> — Tracez un rectangle sur la marque ou le modèle pour le reconnaître automatiquement. Premier tracé → <strong>Désignation</strong>, deuxième → <strong>Marque</strong>.
-        </div>
-        <div id="ocr-status"></div>
-
-        <div class="btn-row">
-          <button class="btn btn-cam" onclick="ouvrirCamera()">
-            <svg width="16" height="16" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            Prendre une photo
+        <!-- Barre d'outils -->
+        <div class="toolbar" id="toolbar-normal">
+          <button class="tb tb-cam" onclick="ouvrirCamera()">
+            <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Photo
           </button>
-          <button class="btn btn-gal" onclick="ouvrirGalerie()">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <button class="tb tb-gal" onclick="ouvrirGalerie()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             Galerie
           </button>
+          <div class="tool-sep" id="sep1" style="display:none"></div>
+          <button class="tb tb-rot" id="btn-rot-l" onclick="rotation(-90)" style="display:none" title="Rotation gauche">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+            −90°
+          </button>
+          <button class="tb tb-rot" id="btn-rot-r" onclick="rotation(90)" style="display:none" title="Rotation droite">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="transform:scaleX(-1)"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+            +90°
+          </button>
+          <button class="tb tb-rot" id="btn-rot-180" onclick="rotation(180)" style="display:none" title="Retourner">
+            180°
+          </button>
+          <button class="tb tb-crop" id="btn-crop" onclick="toggleCrop()" style="display:none">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 2 6 8 2 8"/><polyline points="18 22 18 16 22 16"/><path d="M2 14h10a2 2 0 0 0 2-2V2"/><path d="M22 10H12a2 2 0 0 1-2-2"/></svg>
+            Recadrer
+          </button>
         </div>
-        <input type="file" id="input-camera" accept="image/*">
+
+        <!-- Actions recadrage -->
+        <div class="crop-actions" id="crop-actions">
+          <button class="tb tb-valid" style="flex:1" onclick="validerCrop()">
+            <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            Valider le recadrage
+          </button>
+          <button class="tb tb-cancel" style="flex:none;padding:9px 14px" onclick="annulerCrop()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Annuler
+          </button>
+        </div>
+
+        <!-- Hint OCR -->
+        <div class="ocr-hint" id="ocr-hint">
+          ✦ <strong>OCR</strong> — Tracez un rectangle sur le texte (marque / modèle) pour le reconnaître. 1er tracé → <strong>Désignation</strong>, 2e → <strong>Marque</strong>.
+        </div>
+        <div id="ocr-status"></div>
+        <div id="ocr-preview-wrap">
+          <p>Zone analysée par l'OCR :</p>
+          <img id="ocr-preview" src="" alt="">
+        </div>
+
+        <input type="file" id="input-file" accept="image/*">
       </div>
     </div>
 
     <!-- ÉTAPE 2 : FORMULAIRE -->
     <div class="card">
-      <div class="card-header">
-        <div class="card-header-icon">
-          <svg width="16" height="16" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </div>
+      <div class="ch">
+        <div class="chi"><svg width="15" height="15" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
         <h2>Informations</h2>
-        <div class="step-badge">2</div>
+        <div class="sbadge">2</div>
       </div>
-      <div class="card-body">
-        <div class="form-grid">
-
-          <div class="form-row2">
+      <div class="cb">
+        <div class="fg">
+          <div class="fr2">
             <div>
               <label>Désignation *</label>
-              <div class="input-wrap">
-                <input type="text" id="f-nom" placeholder="ex : Perceuse percussion" autocomplete="off">
-                <span class="ocr-pill" id="badge-nom">OCR</span>
+              <div class="iw">
+                <input type="text" id="f-nom" placeholder="ex : Perceuse à choc" autocomplete="off">
+                <span class="opill" id="b-nom">OCR</span>
               </div>
             </div>
             <div>
-              <label>Marque *</label>
-              <div class="input-wrap">
-                <input type="text" id="f-marque" placeholder="ex : MAKITA" autocomplete="off">
-                <span class="ocr-pill" id="badge-marque">OCR</span>
+              <label>Marque</label>
+              <div class="iw">
+                <input type="text" id="f-mar" placeholder="ex : FACOM" autocomplete="off">
+                <span class="opill" id="b-mar">OCR</span>
               </div>
             </div>
           </div>
-
-          <div class="form-row3">
+          <div class="fr3">
             <div>
               <label>Catégorie</label>
-              <select id="f-categorie">
+              <select id="f-cat">
                 <option value="Électroportatif">⚡ Électroportatif</option>
                 <option value="Petit outillage">🔧 Petit outillage</option>
                 <option value="Autre">📦 Autre</option>
@@ -578,14 +387,13 @@ input[type="number"] { -moz-appearance:textfield; }
               </select>
             </div>
             <div>
-              <label>Quantité</label>
-              <input type="number" id="f-quantite" min="1" value="1">
+              <label>Qté</label>
+              <input type="number" id="f-qte" min="1" value="1">
             </div>
           </div>
-
-          <div class="form-row2">
+          <div class="fr2">
             <div>
-              <label>N° Série / Réf.</label>
+              <label>N° série / Réf.</label>
               <input type="text" id="f-ref" placeholder="optionnel" autocomplete="off">
             </div>
             <div>
@@ -593,384 +401,597 @@ input[type="number"] { -moz-appearance:textfield; }
               <input type="text" id="f-obs" placeholder="remarques..." autocomplete="off">
             </div>
           </div>
-
-          <div class="btn-add-row">
-            <button class="btn btn-add" onclick="ajouterArticle()">
-              <svg width="18" height="18" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          <div class="brow2">
+            <button class="badd" onclick="ajouterArticle()">
+              <svg width="16" height="16" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
               Ajouter à l'inventaire
             </button>
-            <button class="btn btn-reset" onclick="resetFormulaire()" title="Réinitialiser">
-              <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+            <button class="breset" onclick="resetForm()" title="Réinitialiser">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
             </button>
           </div>
-
         </div>
       </div>
     </div>
 
-  </div>
-  <!-- fin col-saisie -->
+  </div><!-- /col-s -->
 
-  <!-- ═══ COLONNE DROITE : HISTORIQUE ═══════════════════ -->
-  <div class="col-historique">
-
-    <div class="hist-header">
+  <!-- ═══ COLONNE HISTORIQUE ═══════════════════════════════ -->
+  <div class="col-h">
+    <div class="hh">
       <h2>
-        <svg width="15" height="15" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.5" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        <svg width="13" height="13" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="2.5" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
         Inventaire en cours
       </h2>
-      <div class="hist-stats">
-        <div class="stat-box">
-          <div class="val" id="stat-articles">0</div>
-          <div class="lbl">Articles</div>
-        </div>
-        <div class="stat-box">
-          <div class="val" id="stat-unites">0</div>
-          <div class="lbl">Unités</div>
-        </div>
+      <div class="stats">
+        <div class="sbox"><div class="v" id="st-art">0</div><div class="l">Articles</div></div>
+        <div class="sbox"><div class="v" id="st-uni">0</div><div class="l">Unités</div></div>
       </div>
     </div>
-
-    <div class="hist-scroll" id="hist-scroll">
-      <div class="hist-empty" id="hist-empty">
-        <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+    <div class="hscroll" id="hscroll">
+      <div class="hempty" id="hempty">
+        <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
         <br>Aucun article encore<br>enregistré
       </div>
     </div>
-
-    <div class="hist-exports">
-      <div class="btn-export-row">
-        <button class="btn-export btn-export-pdf" onclick="exporterPDF()">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          PDF
+    <div class="hexports">
+      <div class="brow">
+        <button class="bexp bpdf" onclick="exportPDF()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF
         </button>
-        <button class="btn-export btn-export-xl" onclick="exporterExcel()">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          Excel
+        <button class="bexp bxl" onclick="exportExcel()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Excel
         </button>
       </div>
-      <button onclick="viderInventaire()" style="background:rgba(230,57,70,0.08);border:1.5px solid rgba(230,57,70,0.2);color:rgba(230,57,70,0.7);border-radius:10px;padding:9px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;cursor:pointer;letter-spacing:.3px;transition:all .15s;width:100%">
-        🗑 Vider l'inventaire
-      </button>
+      <button class="bvide" onclick="viderInv()">🗑 Vider l'inventaire</button>
     </div>
-
-    <div class="ver">Inventaire Terrain v2.1 — GRDF BDSN</div>
+    <div class="ver">Inventaire Terrain v3.0 — GRDF BDSN</div>
   </div>
 
-</div>
+</div><!-- /app -->
 
 <div id="toast"></div>
 
 <script>
-// ─── ÉTAT ─────────────────────────────────────────────────
-let inventaire = JSON.parse(localStorage.getItem('inv_grdf_v2') || '[]');
-let photoActuelle = null;
-let imgOffsetX=0, imgOffsetY=0, imgW=0, imgH=0;
-let selectionActive=false, startX=0, startY=0;
-let ocrCount=0;
+// ════════════════════════════════════════════════════════
+// ÉTAT GLOBAL
+// ════════════════════════════════════════════════════════
+let inv = JSON.parse(localStorage.getItem('inv_grdf_v3')||'[]');
+let photoBase64 = null;   // image originale chargée
+let canvasImg   = null;   // Image() courante dans le canvas
+let rotation_deg = 0;     // rotation accumulée
+let ocrCount = 0;
 
-// ─── INIT ─────────────────────────────────────────────────
+// Canvas principal
+const cvs = document.getElementById('canvas-main');
+const ctx = cvs.getContext('2d');
+
+// ════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════
 (function(){
   const n=new Date();
-  document.getElementById('header-date').textContent=
+  document.getElementById('hdate').textContent=
     n.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   rafraichir();
 })();
 
-// ─── CAMÉRA / GALERIE ─────────────────────────────────────
+// ════════════════════════════════════════════════════════
+// CHARGEMENT PHOTO
+// ════════════════════════════════════════════════════════
 function ouvrirCamera(){
-  const i=document.getElementById('input-camera');
-  i.setAttribute('capture','environment'); i.click();
+  const f=document.getElementById('input-file');
+  f.setAttribute('capture','environment');f.click();
 }
 function ouvrirGalerie(){
-  const i=document.getElementById('input-camera');
-  i.removeAttribute('capture'); i.click();
+  const f=document.getElementById('input-file');
+  f.removeAttribute('capture');f.click();
 }
-document.getElementById('input-camera').addEventListener('change',function(e){
-  const f=e.target.files[0]; if(!f)return;
+document.getElementById('input-file').addEventListener('change',function(e){
+  const file=e.target.files[0]; if(!file)return;
   const r=new FileReader();
-  r.onload=ev=>{ photoActuelle=ev.target.result; afficherPhoto(photoActuelle); };
-  r.readAsDataURL(f); this.value='';
+  r.onload=ev=>{
+    rotation_deg=0;
+    chargerImage(ev.target.result);
+  };
+  r.readAsDataURL(file);
+  this.value='';
 });
 
-function afficherPhoto(src){
-  const img=document.getElementById('photo-preview');
-  document.getElementById('ph-placeholder').style.display='none';
-  img.src=src; img.style.display='block';
+function chargerImage(src){
+  const img=new Image();
+  img.onload=()=>{
+    canvasImg=img;
+    photoBase64=src;
+    dessinerCanvas();
+    afficherOutils();
+  };
+  img.src=src;
+}
+
+function dessinerCanvas(){
+  if(!canvasImg)return;
+  const iw=canvasImg.naturalWidth, ih=canvasImg.naturalHeight;
+  const swapped=(rotation_deg===90||rotation_deg===270||rotation_deg===-90);
+  const cw=swapped?ih:iw, ch=swapped?iw:ih;
+
+  // Dimensions d'affichage (max 800px large, ratio conservé)
+  const maxW=800;
+  const scale=cw>maxW?maxW/cw:1;
+  const dw=Math.round(cw*scale), dh=Math.round(ch*scale);
+
+  cvs.width=dw; cvs.height=dh;
+  ctx.save();
+  ctx.clearRect(0,0,dw,dh);
+  ctx.translate(dw/2,dh/2);
+  ctx.rotate(rotation_deg*Math.PI/180);
+  if(swapped){
+    ctx.drawImage(canvasImg,-ih/2*scale,-iw/2*scale,ih*scale,iw*scale);
+  } else {
+    ctx.drawImage(canvasImg,-iw/2*scale,-ih/2*scale,iw*scale,ih*scale);
+  }
+  ctx.restore();
+
+  // Récupérer le canvas comme nouvelle source
+  photoBase64=cvs.toDataURL('image/jpeg',0.92);
+  document.getElementById('placeholder').style.display='none';
+}
+
+function afficherOutils(){
+  ['btn-rot-l','btn-rot-r','btn-rot-180','btn-crop','sep1'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display='flex';
+  });
   document.getElementById('ocr-hint').style.display='block';
   activerOCR();
 }
 
-// ─── OCR SÉLECTION ────────────────────────────────────────
-function activerOCR(){
-  const zone=document.getElementById('zone-photo');
-  const rect=document.getElementById('selection-rect');
+// ════════════════════════════════════════════════════════
+// ROTATION
+// ════════════════════════════════════════════════════════
+function rotation(deg){
+  if(!canvasImg){toast('⚠️ Chargez d\'abord une photo');return;}
+  rotation_deg=(rotation_deg+deg+360)%360;
+  dessinerCanvas();
+  toast(deg===180?'↕ Photo retournée':'Photo pivotée '+deg+'°');
+}
 
+// ════════════════════════════════════════════════════════
+// RECADRAGE
+// ════════════════════════════════════════════════════════
+let cropMode=false;
+let cropBox={x:0,y:0,w:0,h:0};
+let dragHandle=null, dragStart={x:0,y:0}, cropStart={};
+
+function toggleCrop(){
+  if(!canvasImg){toast('⚠️ Chargez d\'abord une photo');return;}
+  cropMode=!cropMode;
+  document.getElementById('btn-crop').classList.toggle('active',cropMode);
+  document.getElementById('crop-actions').classList.toggle('show',cropMode);
+  const ov=document.getElementById('crop-overlay');
+  if(cropMode){
+    // Init crop box à 80% du canvas centré
+    const cw=cvs.offsetWidth,ch=cvs.offsetHeight;
+    cropBox={x:Math.round(cw*.1),y:Math.round(ch*.1),w:Math.round(cw*.8),h:Math.round(ch*.8)};
+    ov.classList.add('active');
+    majCropOverlay();
+    activerHandles();
+    // Désactiver OCR pendant crop
+    cvs.ontouchstart=cvs.onmousedown=null;
+    cvs.ontouchmove=cvs.onmousemove=null;
+    cvs.ontouchend=cvs.onmouseup=null;
+  } else {
+    ov.classList.remove('active');
+    activerOCR();
+  }
+}
+
+function majCropOverlay(){
+  const wrap=document.getElementById('photo-wrap');
+  const cw=wrap.offsetWidth, ch=cvs.offsetHeight;
+  const {x,y,w,h}=cropBox;
+  document.getElementById('cd-top').style.cssText=`top:0;left:0;width:${cw}px;height:${y}px`;
+  document.getElementById('cd-bot').style.cssText=`top:${y+h}px;left:0;width:${cw}px;height:${ch-y-h}px`;
+  document.getElementById('cd-left').style.cssText=`top:${y}px;left:0;width:${x}px;height:${h}px`;
+  document.getElementById('cd-right').style.cssText=`top:${y}px;left:${x+w}px;width:${cw-x-w}px;height:${h}px`;
+  document.getElementById('crop-box').style.cssText=`left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
+}
+
+function activerHandles(){
+  const handles={
+    'ch-tl':(_,dx,dy)=>({x:cropBox.x+dx,y:cropBox.y+dy,w:cropBox.w-dx,h:cropBox.h-dy}),
+    'ch-tr':(_,dx,dy)=>({x:cropBox.x,  y:cropBox.y+dy,w:cropBox.w+dx,h:cropBox.h-dy}),
+    'ch-bl':(_,dx,dy)=>({x:cropBox.x+dx,y:cropBox.y,  w:cropBox.w-dx,h:cropBox.h+dy}),
+    'ch-br':(_,dx,dy)=>({x:cropBox.x,  y:cropBox.y,  w:cropBox.w+dx,h:cropBox.h+dy}),
+  };
+  Object.entries(handles).forEach(([id,fn])=>{
+    const el=document.getElementById(id);
+    const start=e=>{
+      e.stopPropagation();e.preventDefault();
+      const t=e.touches?e.touches[0]:e;
+      dragHandle=fn; dragStart={x:t.clientX,y:t.clientY};
+      cropStart={...cropBox};
+      document.addEventListener('mousemove',moveFn);document.addEventListener('touchmove',moveFn,{passive:false});
+      document.addEventListener('mouseup',upFn);document.addEventListener('touchend',upFn);
+    };
+    const moveFn=e=>{
+      e.preventDefault();
+      const t=e.touches?e.touches[0]:e;
+      const dx=t.clientX-dragStart.x,dy=t.clientY-dragStart.y;
+      const nb=dragHandle(null,dx,dy);
+      const cw=cvs.offsetWidth,ch=cvs.offsetHeight;
+      cropBox.x=Math.max(0,Math.min(nb.x,cw-20));
+      cropBox.y=Math.max(0,Math.min(nb.y,ch-20));
+      cropBox.w=Math.max(30,Math.min(nb.w,cw-cropBox.x));
+      cropBox.h=Math.max(30,Math.min(nb.h,ch-cropBox.y));
+      majCropOverlay();
+    };
+    const upFn=()=>{
+      document.removeEventListener('mousemove',moveFn);document.removeEventListener('touchmove',moveFn);
+      document.removeEventListener('mouseup',upFn);document.removeEventListener('touchend',upFn);
+    };
+    el.addEventListener('mousedown',start);el.addEventListener('touchstart',start,{passive:false});
+  });
+
+  // Drag de la box entière
+  const box=document.getElementById('crop-box');
+  box.addEventListener('mousedown',startBoxDrag);
+  box.addEventListener('touchstart',startBoxDrag,{passive:false});
+}
+
+function startBoxDrag(e){
+  if(e.target.classList.contains('crop-handle'))return;
+  e.preventDefault();e.stopPropagation();
+  const t=e.touches?e.touches[0]:e;
+  const sx=t.clientX,sy=t.clientY;
+  const ox=cropBox.x,oy=cropBox.y;
+  const mv=e2=>{
+    e2.preventDefault();
+    const t2=e2.touches?e2.touches[0]:e2;
+    const cw=cvs.offsetWidth,ch=cvs.offsetHeight;
+    cropBox.x=Math.max(0,Math.min(ox+t2.clientX-sx,cw-cropBox.w));
+    cropBox.y=Math.max(0,Math.min(oy+t2.clientY-sy,ch-cropBox.h));
+    majCropOverlay();
+  };
+  const up=()=>{
+    document.removeEventListener('mousemove',mv);document.removeEventListener('touchmove',mv);
+    document.removeEventListener('mouseup',up);document.removeEventListener('touchend',up);
+  };
+  document.addEventListener('mousemove',mv);document.addEventListener('touchmove',mv,{passive:false});
+  document.addEventListener('mouseup',up);document.addEventListener('touchend',up);
+}
+
+function validerCrop(){
+  // Ratio canvas affiché / canvas réel
+  const rx=cvs.width/cvs.offsetWidth;
+  const ry=cvs.height/cvs.offsetHeight;
+  const cx=Math.round(cropBox.x*rx), cy=Math.round(cropBox.y*ry);
+  const cw=Math.round(cropBox.w*rx), ch=Math.round(cropBox.h*ry);
+
+  const tmp=document.createElement('canvas');
+  tmp.width=cw; tmp.height=ch;
+  tmp.getContext('2d').drawImage(cvs,cx,cy,cw,ch,0,0,cw,ch);
+
+  const newSrc=tmp.toDataURL('image/jpeg',0.92);
+  chargerImage(newSrc);
+  rotation_deg=0;
+
+  annulerCrop();
+  toast('✂️ Recadrage appliqué');
+}
+
+function annulerCrop(){
+  cropMode=false;
+  document.getElementById('btn-crop').classList.remove('active');
+  document.getElementById('crop-actions').classList.remove('show');
+  document.getElementById('crop-overlay').classList.remove('active');
+  activerOCR();
+}
+
+// ════════════════════════════════════════════════════════
+// OCR — SÉLECTION + PRÉTRAITEMENT
+// ════════════════════════════════════════════════════════
+let selActive=false,selX0=0,selY0=0;
+let imgOffX=0,imgOffY=0,imgW=0,imgH=0;
+
+function activerOCR(){
+  if(cropMode)return;
+  const rect=document.getElementById('sel-rect');
   const getXY=e=>{
     const t=e.touches?e.touches[0]:e;
-    const zr=zone.getBoundingClientRect();
-    return { x:t.clientX-zr.left, y:t.clientY-zr.top };
+    const zr=cvs.getBoundingClientRect();
+    return{x:t.clientX-zr.left,y:t.clientY-zr.top};
   };
-
-  zone.ontouchstart=zone.onmousedown=e=>{
+  cvs.ontouchstart=cvs.onmousedown=e=>{
     e.preventDefault();
-    const {x,y}=getXY(e);
-    startX=x; startY=y; selectionActive=true;
-    rect.style.cssText=`display:block;left:${x}px;top:${y}px;width:0;height:0;`;
-
-    const imgEl=document.getElementById('photo-preview');
-    const zr=zone.getBoundingClientRect();
-    const sc=Math.min(zr.width/imgEl.naturalWidth,zr.height/imgEl.naturalHeight);
-    imgW=imgEl.naturalWidth*sc; imgH=imgEl.naturalHeight*sc;
-    imgOffsetX=(zr.width-imgW)/2; imgOffsetY=(zr.height-imgH)/2;
+    const{x,y}=getXY(e);
+    selX0=x;selY0=y;selActive=true;
+    rect.style.cssText=`display:block;left:${x}px;top:${y}px;width:0;height:0`;
+    // dimensions réelles
+    imgW=cvs.offsetWidth;imgH=cvs.offsetHeight;
+    imgOffX=0;imgOffY=0;
   };
-  zone.ontouchmove=zone.onmousemove=e=>{
-    if(!selectionActive)return; e.preventDefault();
-    const {x,y}=getXY(e);
-    rect.style.left=Math.min(startX,x)+'px';
-    rect.style.top=Math.min(startY,y)+'px';
-    rect.style.width=Math.abs(x-startX)+'px';
-    rect.style.height=Math.abs(y-startY)+'px';
+  cvs.ontouchmove=cvs.onmousemove=e=>{
+    if(!selActive)return;e.preventDefault();
+    const{x,y}=getXY(e);
+    rect.style.left=Math.min(selX0,x)+'px';
+    rect.style.top=Math.min(selY0,y)+'px';
+    rect.style.width=Math.abs(x-selX0)+'px';
+    rect.style.height=Math.abs(y-selY0)+'px';
   };
-  zone.ontouchend=zone.onmouseup=e=>{
-    if(!selectionActive)return; selectionActive=false;
+  cvs.ontouchend=cvs.onmouseup=e=>{
+    if(!selActive)return;selActive=false;
     const w=parseFloat(rect.style.width),h=parseFloat(rect.style.height);
-    if(w<15||h<10){rect.style.display='none';return;}
+    if(w<12||h<8){rect.style.display='none';return;}
     lancerOCR();
   };
 }
 
 function lancerOCR(){
-  const rect=document.getElementById('selection-rect');
-  const imgEl=document.getElementById('photo-preview');
+  const rect=document.getElementById('sel-rect');
   const status=document.getElementById('ocr-status');
+  const prevWrap=document.getElementById('ocr-preview-wrap');
+  const prevImg=document.getElementById('ocr-preview');
 
-  const sx=parseFloat(rect.style.left)-imgOffsetX;
-  const sy=parseFloat(rect.style.top)-imgOffsetY;
-  const sw=parseFloat(rect.style.width);
-  const sh=parseFloat(rect.style.height);
-  const rx=imgEl.naturalWidth/imgW, ry=imgEl.naturalHeight/imgH;
+  // Coordonnées dans le canvas réel
+  const rx=cvs.width/cvs.offsetWidth;
+  const ry=cvs.height/cvs.offsetHeight;
+  const sx=Math.round(parseFloat(rect.style.left)*rx);
+  const sy=Math.round(parseFloat(rect.style.top)*ry);
+  const sw=Math.round(parseFloat(rect.style.width)*rx);
+  const sh=Math.round(parseFloat(rect.style.height)*ry);
 
-  const canvas=document.createElement('canvas');
-  canvas.width=Math.round(sw*rx); canvas.height=Math.round(sh*ry);
-  canvas.getContext('2d').drawImage(imgEl,
-    Math.round(sx*rx),Math.round(sy*ry),canvas.width,canvas.height,
-    0,0,canvas.width,canvas.height);
+  // ── PRÉTRAITEMENT ──
+  // 1. Crop brut
+  const raw=document.createElement('canvas');
+  raw.width=sw; raw.height=sh;
+  raw.getContext('2d').drawImage(cvs,sx,sy,sw,sh,0,0,sw,sh);
 
+  // 2. Upscale × 3 (min 400px large pour Tesseract)
+  const scale=Math.max(3,Math.ceil(400/sw));
+  const up=document.createElement('canvas');
+  up.width=sw*scale; up.height=sh*scale;
+  const uc=up.getContext('2d');
+  uc.imageSmoothingEnabled=false;
+  uc.drawImage(raw,0,0,up.width,up.height);
+
+  // 3. Niveaux de gris + contraste
+  const id=uc.getImageData(0,0,up.width,up.height);
+  const d=id.data;
+  for(let i=0;i<d.length;i+=4){
+    // Luminosité
+    let g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+    // Contraste fort (facteur 2.5)
+    g=Math.min(255,Math.max(0,((g-128)*2.5)+128));
+    // Seuillage adaptatif (binarisation)
+    g=g>145?255:0;
+    d[i]=d[i+1]=d[i+2]=g;
+  }
+  uc.putImageData(id,0,0);
+
+  // 4. Marge blanche autour (aide Tesseract)
+  const padded=document.createElement('canvas');
+  const pad=20;
+  padded.width=up.width+pad*2; padded.height=up.height+pad*2;
+  const pc=padded.getContext('2d');
+  pc.fillStyle='#fff'; pc.fillRect(0,0,padded.width,padded.height);
+  pc.drawImage(up,pad,pad);
+
+  const src=padded.toDataURL('image/png');
+
+  // Aperçu
+  prevImg.src=src; prevWrap.style.display='block';
   status.style.display='block';
   status.textContent='🔍 Analyse OCR en cours...';
 
   const champ=choisirChamp();
 
-  Tesseract.recognize(canvas.toDataURL(),'fra+eng',{logger:()=>{}})
-    .then(({data:{text}})=>{
-      const propre=text.replace(/\n/g,' ').replace(/\s+/g,' ').trim();
-      if(propre.length>0){
-        document.getElementById('f-'+champ).value=propre;
-        document.getElementById('badge-'+champ).classList.add('on');
-        status.textContent=`✅ "${propre.substring(0,45)}${propre.length>45?'…':''}"`;
-        setTimeout(()=>status.style.display='none',3000);
-        toast('Texte reconnu → '+(champ==='nom'?'Désignation':'Marque'));
-      } else {
-        status.textContent='⚠️ Texte non reconnu — saisissez manuellement';
-        setTimeout(()=>status.style.display='none',3000);
-      }
-      rect.style.display='none';
-    }).catch(()=>{
-      status.textContent='❌ Erreur — saisissez manuellement';
-      setTimeout(()=>status.style.display='none',3000);
-      rect.style.display='none';
-    });
-}
-
-function choisirChamp(){
-  if(!document.getElementById('f-nom').value.trim()) return 'nom';
-  if(!document.getElementById('f-marque').value.trim()) return 'marque';
-  return (++ocrCount%2===1)?'nom':'marque';
-}
-
-// ─── AJOUTER ──────────────────────────────────────────────
-function ajouterArticle(){
-  const nom=document.getElementById('f-nom').value.trim();
-  if(!nom){toast('⚠️ La désignation est obligatoire');return;}
-  const art={
-    id:Date.now(),
-    nom, marque:document.getElementById('f-marque').value.trim(),
-    categorie:document.getElementById('f-categorie').value,
-    quantite:parseInt(document.getElementById('f-quantite').value)||1,
-    etat:document.getElementById('f-etat').value,
-    ref:document.getElementById('f-ref').value.trim(),
-    obs:document.getElementById('f-obs').value.trim(),
-    photo:photoActuelle,
-    heure:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
-  };
-  inventaire.push(art);
-  sauvegarder(); rafraichir(); resetFormulaire();
-  toast('✅ '+nom+' ajouté');
-}
-
-function resetFormulaire(){
-  ['f-nom','f-marque','f-ref','f-obs'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('f-quantite').value='1';
-  document.getElementById('f-etat').value='Bon';
-  ['badge-nom','badge-marque'].forEach(id=>document.getElementById(id).classList.remove('on'));
-  photoActuelle=null; ocrCount=0;
-  document.getElementById('photo-preview').style.display='none';
-  document.getElementById('ph-placeholder').style.display='flex';
-  document.getElementById('ocr-hint').style.display='none';
-  document.getElementById('selection-rect').style.display='none';
-  document.getElementById('ocr-status').style.display='none';
-}
-
-// ─── HISTORIQUE ───────────────────────────────────────────
-function rafraichir(){
-  const total=inventaire.reduce((s,a)=>s+a.quantite,0);
-  document.getElementById('chip-count').textContent=inventaire.length+' article'+(inventaire.length>1?'s':'');
-  document.getElementById('stat-articles').textContent=inventaire.length;
-  document.getElementById('stat-unites').textContent=total;
-
-  const scroll=document.getElementById('hist-scroll');
-  const empty=document.getElementById('hist-empty');
-
-  if(!inventaire.length){ empty.style.display='block'; return; }
-  empty.style.display='none';
-
-  // On reconstruit les cartes
-  const existing=scroll.querySelectorAll('.hist-card');
-  existing.forEach(e=>e.remove());
-
-  [...inventaire].reverse().forEach(a=>{
-    const card=document.createElement('div');
-    card.className='hist-card';
-    card.dataset.id=a.id;
-    card.innerHTML=`
-      <div class="hist-thumb">
-        ${a.photo?`<img src="${a.photo}" alt="">`:'📦'}
-      </div>
-      <div class="hist-info">
-        <div class="hist-nom">${esc(a.nom)}</div>
-        <div class="hist-marque">${esc(a.marque||'—')} · ${esc(a.categorie)}</div>
-        <div class="hist-bottom">
-          <span class="hist-qte">× ${a.quantite}</span>
-          <span class="hist-etat ${a.etat==='Bon'?'bon':a.etat==='Moyen'?'moyen':'hs'}">${esc(a.etat)}</span>
-        </div>
-      </div>
-      <button class="hist-del" onclick="supprimerArticle(${a.id});event.stopPropagation()">✕</button>
-    `;
-    scroll.appendChild(card);
+  Tesseract.recognize(src,'fra+eng',{
+    logger:()=>{},
+    tessedit_pageseg_mode:'7',   // ligne unique
+    tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .-/+',
+  }).then(({data:{text,confidence}})=>{
+    // Nettoyage : on garde lettres, chiffres, espaces, tirets
+    const propre=text.replace(/[^a-zA-Z0-9\s\-\.\/\+]/g,' ').replace(/\s+/g,' ').trim();
+    const conf=Math.round(confidence||0);
+    if(propre.length>1){
+      document.getElementById('f-'+champ).value=propre;
+      document.getElementById('b-'+champ).classList.add('on');
+      status.textContent=`✅ Confiance ${conf}% → "${propre.substring(0,40)}${propre.length>40?'…':''}"`;
+      setTimeout(()=>{status.style.display='none';prevWrap.style.display='none';},4000);
+      toast('OCR → '+(champ==='nom'?'Désignation':'Marque')+' : '+propre.substring(0,20));
+    } else {
+      status.textContent=`⚠️ Confiance ${conf}% — texte non reconnu, saisissez manuellement`;
+      setTimeout(()=>{status.style.display='none';prevWrap.style.display='none';},4000);
+    }
+    rect.style.display='none';
+  }).catch(()=>{
+    status.textContent='❌ Erreur OCR — saisissez manuellement';
+    setTimeout(()=>{status.style.display='none';prevWrap.style.display='none';},4000);
+    rect.style.display='none';
   });
 }
 
-function supprimerArticle(id){
-  inventaire=inventaire.filter(a=>a.id!==id);
-  sauvegarder(); rafraichir();
-  toast('Article supprimé');
+function choisirChamp(){
+  if(!document.getElementById('f-nom').value.trim())return'nom';
+  if(!document.getElementById('f-mar').value.trim())return'mar';
+  return(++ocrCount%2===1)?'nom':'mar';
 }
-function viderInventaire(){
-  if(!inventaire.length){toast('Inventaire déjà vide');return;}
+
+// ════════════════════════════════════════════════════════
+// AJOUTER ARTICLE
+// ════════════════════════════════════════════════════════
+function ajouterArticle(){
+  const nom=document.getElementById('f-nom').value.trim();
+  if(!nom){toast('⚠️ La désignation est obligatoire');return;}
+  inv.push({
+    id:Date.now(),
+    nom, marque:document.getElementById('f-mar').value.trim(),
+    cat:document.getElementById('f-cat').value,
+    qte:parseInt(document.getElementById('f-qte').value)||1,
+    etat:document.getElementById('f-etat').value,
+    ref:document.getElementById('f-ref').value.trim(),
+    obs:document.getElementById('f-obs').value.trim(),
+    photo:photoBase64,
+    h:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
+  });
+  sauv();rafraichir();resetForm();
+  toast('✅ '+nom+' ajouté');
+}
+
+function resetForm(){
+  ['f-nom','f-mar','f-ref','f-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-qte').value='1';
+  document.getElementById('f-etat').value='Bon';
+  ['b-nom','b-mar'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  photoBase64=null;canvasImg=null;rotation_deg=0;ocrCount=0;
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  cvs.width=800;cvs.height=450;
+  document.getElementById('placeholder').style.display='flex';
+  document.getElementById('ocr-hint').style.display='none';
+  document.getElementById('sel-rect').style.display='none';
+  document.getElementById('ocr-status').style.display='none';
+  document.getElementById('ocr-preview-wrap').style.display='none';
+  ['btn-rot-l','btn-rot-r','btn-rot-180','btn-crop','sep1'].forEach(id=>{
+    const el=document.getElementById(id); if(el)el.style.display='none';
+  });
+  document.getElementById('crop-actions').classList.remove('show');
+  document.getElementById('crop-overlay').classList.remove('active');
+  cropMode=false;
+}
+
+// ════════════════════════════════════════════════════════
+// HISTORIQUE
+// ════════════════════════════════════════════════════════
+function rafraichir(){
+  const total=inv.reduce((s,a)=>s+a.qte,0);
+  document.getElementById('chip').textContent=inv.length+' article'+(inv.length>1?'s':'');
+  document.getElementById('st-art').textContent=inv.length;
+  document.getElementById('st-uni').textContent=total;
+  const scroll=document.getElementById('hscroll');
+  const empty=document.getElementById('hempty');
+  empty.style.display=inv.length?'none':'block';
+  scroll.querySelectorAll('.hcard').forEach(e=>e.remove());
+  [...inv].reverse().forEach(a=>{
+    const c=document.createElement('div');
+    c.className='hcard';
+    c.innerHTML=`
+      <div class="hthumb">${a.photo?`<img src="${a.photo}" alt="">`:'📦'}</div>
+      <div class="hinfo">
+        <div class="hnom">${esc(a.nom)}</div>
+        <div class="hmar">${esc(a.marque||'—')} · ${esc(a.cat)}</div>
+        <div class="hbot">
+          <span class="hqte">× ${a.qte}</span>
+          <span class="hetat ${a.etat==='Bon'?'bon':a.etat==='Moyen'?'moy':'hs'}">${esc(a.etat)}</span>
+        </div>
+      </div>
+      <button class="hdel" onclick="suppArt(${a.id});event.stopPropagation()">✕</button>`;
+    scroll.appendChild(c);
+  });
+}
+
+function suppArt(id){inv=inv.filter(a=>a.id!==id);sauv();rafraichir();toast('Article supprimé');}
+function viderInv(){
+  if(!inv.length){toast('Inventaire déjà vide');return;}
   if(!confirm('Vider tout l\'inventaire ?'))return;
-  inventaire=[]; sauvegarder(); rafraichir(); toast('Inventaire vidé');
+  inv=[];sauv();rafraichir();toast('Inventaire vidé');
+}
+function sauv(){
+  try{localStorage.setItem('inv_grdf_v3',JSON.stringify(inv));}
+  catch(e){localStorage.setItem('inv_grdf_v3',JSON.stringify(inv.map(a=>({...a,photo:null}))));}
 }
 
-// ─── SAUVEGARDE ───────────────────────────────────────────
-function sauvegarder(){
-  try { localStorage.setItem('inv_grdf_v2',JSON.stringify(inventaire)); }
-  catch(e) {
-    const sp=inventaire.map(a=>({...a,photo:null}));
-    localStorage.setItem('inv_grdf_v2',JSON.stringify(sp));
-  }
-}
-
-// ─── EXPORT EXCEL ─────────────────────────────────────────
-function exporterExcel(){
-  if(!inventaire.length){toast('⚠️ Inventaire vide');return;}
-  const date=new Date().toLocaleDateString('fr-FR');
+// ════════════════════════════════════════════════════════
+// EXPORT EXCEL
+// ════════════════════════════════════════════════════════
+function exportExcel(){
+  if(!inv.length){toast('⚠️ Inventaire vide');return;}
+  const dt=new Date().toLocaleDateString('fr-FR');
   const data=[
     ['INVENTAIRE TERRAIN — GRDF Agence Boucles de Seine Nord'],
-    ['Date :',date],[''],
+    ['Date :',dt],[],
     ['N°','Désignation','Marque','Catégorie','Quantité','État','Référence','Observations']
   ];
-  inventaire.forEach((a,i)=>data.push([i+1,a.nom,a.marque||'',a.categorie,a.quantite,a.etat,a.ref||'',a.obs||'']));
-  data.push([''],['','TOTAL ARTICLES :',inventaire.length,'','TOTAL UNITÉS :',inventaire.reduce((s,a)=>s+a.quantite,0)]);
+  inv.forEach((a,i)=>data.push([i+1,a.nom,a.marque||'',a.cat,a.qte,a.etat,a.ref||'',a.obs||'']));
+  data.push([],['','TOTAL ARTICLES :',inv.length,'','TOTAL UNITÉS :',inv.reduce((s,a)=>s+a.qte,0)]);
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.aoa_to_sheet(data);
   ws['!cols']=[{wch:4},{wch:32},{wch:18},{wch:20},{wch:10},{wch:12},{wch:18},{wch:30}];
   XLSX.utils.book_append_sheet(wb,ws,'Inventaire');
-  XLSX.writeFile(wb,`Inventaire_GRDF_${date.replace(/\//g,'-')}.xlsx`);
+  XLSX.writeFile(wb,`Inventaire_GRDF_${dt.replace(/\//g,'-')}.xlsx`);
   toast('✅ Export Excel généré');
 }
 
-// ─── EXPORT PDF ───────────────────────────────────────────
-async function exporterPDF(){
-  if(!inventaire.length){toast('⚠️ Inventaire vide');return;}
+// ════════════════════════════════════════════════════════
+// EXPORT PDF
+// ════════════════════════════════════════════════════════
+async function exportPDF(){
+  if(!inv.length){toast('⚠️ Inventaire vide');return;}
   toast('⏳ Génération du PDF...');
-  const {jsPDF}=window.jspdf;
+  const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const dStr=new Date().toLocaleDateString('fr-FR');
+  const dt=new Date().toLocaleDateString('fr-FR');
   const pW=210,m=14;
-
-  doc.setFillColor(11,22,48); doc.rect(0,0,pW,30,'F');
-  doc.setFillColor(245,130,10); doc.rect(0,28,pW,2,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.setFillColor(11,22,48);doc.rect(0,0,pW,30,'F');
+  doc.setFillColor(245,130,10);doc.rect(0,28,pW,2,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(17);doc.setFont('helvetica','bold');
   doc.text('INVENTAIRE TERRAIN',m,13);
-  doc.setFontSize(9.5); doc.setFont('helvetica','normal');
-  doc.text('GRDF — Agence Boucles de Seine Nord',m,20);
-  doc.text('Date : '+dStr,pW-m,20,{align:'right'});
-
-  const totalQ=inventaire.reduce((s,a)=>s+a.quantite,0);
-  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(0,49,137);
-  doc.text(`${inventaire.length} article(s)  ·  ${totalQ} unité(s) au total`,m,38);
-
+  doc.setFontSize(9.5);doc.setFont('helvetica','normal');
+  doc.text('GRDF — Agence Boucles de Seine Nord',m,21);
+  doc.text('Date : '+dt,pW-m,21,{align:'right'});
+  const tQ=inv.reduce((s,a)=>s+a.qte,0);
+  doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,49,137);
+  doc.text(`${inv.length} article(s)  ·  ${tQ} unité(s)`,m,38);
   let y=44;
   const cols=[14,56,90,118,148,162];
-  const headers=['Photo','Désignation','Marque','Catégorie','Qté','État'];
-  doc.setFillColor(11,22,48); doc.rect(m,y,pW-m*2,8,'F');
-  doc.setTextColor(255,255,255); doc.setFontSize(8.5); doc.setFont('helvetica','bold');
-  headers.forEach((h,i)=>doc.text(h,cols[i]+1,y+5.5));
+  const hdrs=['Photo','Désignation','Marque','Catégorie','Qté','État'];
+  doc.setFillColor(11,22,48);doc.rect(m,y,pW-m*2,8,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(8.5);doc.setFont('helvetica','bold');
+  hdrs.forEach((h,i)=>doc.text(h,cols[i]+1,y+5.5));
   y+=9;
-
-  for(let i=0;i<inventaire.length;i++){
-    const a=inventaire[i]; const rH=22;
+  for(let i=0;i<inv.length;i++){
+    const a=inv[i];const rH=22;
     if(y+rH>282){
       doc.addPage();y=14;
-      doc.setFillColor(11,22,48); doc.rect(m,y,pW-m*2,8,'F');
-      doc.setTextColor(255,255,255); doc.setFontSize(8.5); doc.setFont('helvetica','bold');
-      headers.forEach((h,j)=>doc.text(h,cols[j]+1,y+5.5)); y+=9;
+      doc.setFillColor(11,22,48);doc.rect(m,y,pW-m*2,8,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(8.5);doc.setFont('helvetica','bold');
+      hdrs.forEach((h,j)=>doc.text(h,cols[j]+1,y+5.5));y+=9;
     }
-    if(i%2===0){doc.setFillColor(244,246,251); doc.rect(m,y,pW-m*2,rH,'F');}
+    if(i%2===0){doc.setFillColor(244,246,251);doc.rect(m,y,pW-m*2,rH,'F');}
     doc.setTextColor(17,24,39);
-    if(a.photo){ try{ doc.addImage(a.photo,'JPEG',cols[0],y+1,18,18); }catch(e){} }
-    doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
-    const nLines=a.nom.length>28?[a.nom.substring(0,28),a.nom.substring(28,56)]:[a.nom];
-    nLines.forEach((l,j)=>doc.text(l,cols[1]+1,y+5.5+j*4));
-    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    if(a.photo){try{doc.addImage(a.photo,'JPEG',cols[0],y+1,18,18);}catch(e){}}
+    doc.setFont('helvetica','bold');doc.setFontSize(8.5);
+    const nl=a.nom.length>28?[a.nom.substring(0,28),a.nom.substring(28,54)]:[a.nom];
+    nl.forEach((l,j)=>doc.text(l,cols[1]+1,y+5.5+j*4));
+    doc.setFont('helvetica','normal');doc.setFontSize(8);
     doc.text(String(a.marque||'—'),cols[2]+1,y+5.5);
-    doc.text(String(a.categorie),cols[3]+1,y+5.5);
-    doc.text(String(a.quantite),cols[4]+4,y+5.5,{align:'center'});
+    doc.text(String(a.cat),cols[3]+1,y+5.5);
+    doc.text(String(a.qte),cols[4]+4,y+5.5,{align:'center'});
     const ec=a.etat==='Bon'?[24,201,122]:a.etat==='Moyen'?[245,130,10]:[230,57,70];
-    doc.setTextColor(...ec); doc.setFont('helvetica','bold');
+    doc.setTextColor(...ec);doc.setFont('helvetica','bold');
     doc.text(a.etat,cols[5]+1,y+5.5);
-    if(a.obs){ doc.setTextColor(120,130,160); doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.text('→ '+a.obs.substring(0,60),cols[1]+1,y+rH-3); }
-    doc.setDrawColor(221,226,239); doc.line(m,y+rH,pW-m,y+rH);
+    if(a.obs){doc.setTextColor(120,130,160);doc.setFont('helvetica','normal');doc.setFontSize(7);doc.text('→ '+a.obs.substring(0,60),cols[1]+1,y+rH-3);}
+    doc.setDrawColor(221,226,239);doc.line(m,y+rH,pW-m,y+rH);
     y+=rH;
   }
   y+=6;
-  doc.setFillColor(11,22,48); doc.rect(m,y,pW-m*2,9,'F');
-  doc.setFillColor(245,130,10); doc.rect(m,y+9,pW-m*2,1.5,'F');
-  doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','bold');
-  doc.text(`TOTAL : ${inventaire.length} article(s) — ${totalQ} unité(s)`,m+2,y+6);
-  doc.text('Inventaire Terrain v2.0',pW-m,y+6,{align:'right'});
-  doc.save(`Inventaire_GRDF_${dStr.replace(/\//g,'-')}.pdf`);
+  doc.setFillColor(11,22,48);doc.rect(m,y,pW-m*2,9,'F');
+  doc.setFillColor(245,130,10);doc.rect(m,y+9,pW-m*2,1.5,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont('helvetica','bold');
+  doc.text(`TOTAL : ${inv.length} article(s) — ${tQ} unité(s)`,m+2,y+6);
+  doc.text('Inventaire Terrain v3.0',pW-m,y+6,{align:'right'});
+  doc.save(`Inventaire_GRDF_${dt.replace(/\//g,'-')}.pdf`);
   toast('✅ PDF généré');
 }
 
-// ─── UTILS ────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════════
 let toastT;
 function toast(msg){
   const el=document.getElementById('toast');
-  el.textContent=msg; el.classList.add('show');
-  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2800);
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2800);
 }
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 </script>
