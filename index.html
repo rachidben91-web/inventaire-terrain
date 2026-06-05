@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Inventaire matériel — GRDF</title>
+<meta name="theme-color" content="#003189">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Inventaire matériel">
+<link rel="icon" type="image/png" href="./dashboard-favicon.png">
+<link rel="apple-touch-icon" href="./dashboard-favicon.png">
+<link rel="manifest" href="./site.webmanifest">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bleu: #003189;
+    --bleu-clair: #0055c8;
+    --orange: #f5820a;
+    --gris-fond: #f0f2f7;
+    --gris-bord: #d0d6e4;
+    --blanc: #ffffff;
+    --texte: #1a1f36;
+    --texte-doux: #5a6080;
+    --vert: #1aab6d;
+    --rouge: #e03434;
+    --rayon: 14px;
+    --ombre: 0 4px 20px rgba(0,49,137,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--gris-fond);
+    color: var(--texte);
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--bleu);
+    color: white;
+    padding: 16px 20px 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo-grdf {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.12);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14);
+    flex-shrink: 0;
+  }
+  .logo-grdf img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  header h1 { font-size: 17px; font-weight: 700; line-height: 1.2; }
+  header p  { font-size: 12px; opacity: .7; margin-top: 2px; }
+  .badge-count {
+    margin-left: auto;
+    background: var(--orange);
+    color: white;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-weight: 700;
+    font-size: 15px;
+    white-space: nowrap;
+  }
+
+  /* SECTIONS */
+  .section {
+    background: var(--blanc);
+    border-radius: var(--rayon);
+    box-shadow: var(--ombre);
+    margin: 16px;
+    overflow: hidden;
+  }
+  .section-title {
+    background: var(--bleu);
+    color: white;
+    padding: 12px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-body { padding: 18px; }
+
+  /* ÉTAPE 1 — PHOTO */
+  #zone-photo {
+    width: 100%;
+    height: min(46vh, 400px);
+    background: #0a1840;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    cursor: crosshair;
+    user-select: none;
+    touch-action: none;
+  }
+  #zone-photo img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  #zone-photo .placeholder {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.35);
+    gap: 10px;
+    font-size: 14px;
+  }
+  #zone-photo .placeholder svg { opacity: .4; }
+
+  /* Canvas OCR overlay */
+  #canvas-ocr {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    display: none;
+  }
+  #selection-rect {
+    position: absolute;
+    border: 2px solid var(--orange);
+    background: rgba(245,130,10,0.15);
+    display: none;
+    pointer-events: none;
+  }
+
+  /* Boutons photo */
+  .btn-photo-row {
+    display: flex; gap: 10px; margin-top: 12px;
+  }
+  .btn { 
+    flex: 1; padding: 13px 10px;
+    border: none; border-radius: 10px;
+    font-size: 14px; font-weight: 700;
+    cursor: pointer; display: flex;
+    align-items: center; justify-content: center;
+    gap: 7px; transition: all .15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active { transform: scale(.96); }
+  .btn-primary { background: var(--bleu-clair); color: white; }
+  .btn-secondary { background: var(--gris-fond); color: var(--texte); border: 1.5px solid var(--gris-bord); }
+  .btn-orange { background: var(--orange); color: white; }
+  .btn-vert { background: var(--vert); color: white; }
+  .btn-rouge { background: var(--rouge); color: white; }
+  .btn-full { width: 100%; flex: none; }
+
+  /* OCR hint */
+  .ocr-hint {
+    background: #fff8ed;
+    border: 1.5px solid #f5c06a;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    color: #7a4f00;
+    margin-top: 10px;
+    display: none;
+    line-height: 1.5;
+  }
+  .ocr-hint.visible { display: block; }
+
+  /* OCR status */
+  #ocr-status {
+    font-size: 12px; color: var(--bleu-clair);
+    margin-top: 8px; min-height: 18px;
+    font-weight: 600; display: none;
+  }
+  .ocr-target-panel {
+    display: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .ocr-target-panel.visible { display: grid; }
+  .ocr-target-btn {
+    border: 1.5px solid var(--gris-bord);
+    background: #f8faff;
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-align: left;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .ocr-target-btn.active {
+    border-color: var(--orange);
+    background: #fff4e8;
+    box-shadow: 0 0 0 2px rgba(245,130,10,0.12);
+  }
+  .ocr-target-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--texte-doux);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    margin-bottom: 4px;
+  }
+  .ocr-target-value {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--texte);
+    min-height: 18px;
+  }
+  .ocr-target-value.empty {
+    color: var(--texte-doux);
+    font-weight: 500;
+  }
+  .ocr-target-help {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--texte-doux);
+  }
+
+  /* FORMULAIRE */
+  .form-grid { display: grid; gap: 12px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  label { font-size: 12px; font-weight: 700; color: var(--texte-doux); display: block; margin-bottom: 5px; letter-spacing: .3px; text-transform: uppercase; }
+  input, select, textarea {
+    width: 100%; padding: 11px 13px;
+    border: 1.5px solid var(--gris-bord);
+    border-radius: 9px;
+    font-size: 15px;
+    color: var(--texte);
+    background: var(--gris-fond);
+    outline: none;
+    transition: border-color .15s;
+    font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--bleu-clair);
+    background: white;
+  }
+  input[type="number"] { -moz-appearance: textfield; }
+
+  /* Champ avec badge OCR */
+  .input-with-badge { position: relative; }
+  .ocr-badge {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: var(--orange); color: white;
+    font-size: 10px; font-weight: 800;
+    padding: 2px 7px; border-radius: 6px;
+    pointer-events: none; display: none;
+    letter-spacing: .5px;
+  }
+  .ocr-badge.visible { display: block; }
+
+  /* RÉCAP */
+  #tableau-recap { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #tableau-recap th {
+    background: var(--bleu);
+    color: white;
+    padding: 9px 10px;
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: .5px;
+  }
+  #tableau-recap td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--gris-bord);
+    vertical-align: middle;
+  }
+  #tableau-recap tr:last-child td { border-bottom: none; }
+  #tableau-recap tr:nth-child(even) td { background: #f7f9fc; }
+  .mini-photo {
+    width: 44px; height: 44px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1.5px solid var(--gris-bord);
+  }
+  .tag-cat {
+    font-size: 11px; font-weight: 700;
+    padding: 3px 8px; border-radius: 5px;
+    display: inline-block;
+  }
+  .tag-electro { background: #e8efff; color: var(--bleu); }
+  .tag-petit   { background: #fff4e0; color: #c06000; }
+  .tag-autre   { background: #f0f0f0; color: #555; }
+  .etat-bon  { color: var(--vert); font-weight: 700; }
+  .etat-moyen { color: var(--orange); font-weight: 700; }
+  .etat-hs   { color: var(--rouge); font-weight: 700; }
+
+  .btn-suppr {
+    background: none; border: none;
+    color: var(--rouge); font-size: 18px;
+    cursor: pointer; padding: 4px 8px;
+    border-radius: 6px;
+  }
+  .btn-suppr:active { background: #ffe0e0; }
+
+  /* EXPORTS */
+  .export-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* VIDE */
+  .empty-state {
+    text-align: center; padding: 32px 20px;
+    color: var(--texte-doux); font-size: 14px;
+  }
+  .empty-state svg { opacity: .25; margin-bottom: 10px; }
+
+  /* INPUT FILE caché */
+  #input-camera { display: none; }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--texte); color: white;
+    padding: 12px 22px; border-radius: 30px;
+    font-size: 14px; font-weight: 600;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+    transition: transform .3s ease;
+    z-index: 999; white-space: nowrap;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Version */
+  .version-tag {
+    text-align: center;
+    font-size: 11px;
+    color: var(--texte-doux);
+    opacity: .5;
+    margin-top: 8px;
+    padding-bottom: 10px;
+  }
+  @media (max-width: 900px) {
+    .section { margin: 12px; }
+    .section-body { padding: 14px; }
+    #zone-photo { height: min(38vh, 320px); }
+  }
+  @media (max-width: 640px) {
+    header {
+      padding: 14px 14px 12px;
+      gap: 10px;
+    }
+    .logo-grdf {
+      width: 36px;
+      height: 36px;
+    }
+    header h1 { font-size: 16px; }
+    .badge-count {
+      font-size: 13px;
+      padding: 4px 10px;
+    }
+    .btn-photo-row,
+    .ocr-target-panel,
+    .form-row,
+    .export-row {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    .btn-photo-row { gap: 8px; }
+    #zone-photo { height: min(34vh, 250px); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-grdf"><img src="./dashboard-favicon.png" alt="Inventaire matériel"></div>
+  <div>
+    <h1>Inventaire matériel</h1>
+    <p id="header-date"></p>
+  </div>
+  <div class="badge-count" id="badge-count">0 article</div>
+</header>
+
+<!-- ÉTAPE 1 : PHOTO + OCR -->
+<div class="section">
+  <div class="section-title">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    Étape 1 — Photo & Reconnaissance
+  </div>
+  <div class="section-body">
+
+    <div id="zone-photo">
+      <div class="placeholder" id="placeholder-photo">
+        <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <span>Prenez une photo pour commencer</span>
+      </div>
+      <img id="photo-preview" src="" alt="" style="display:none">
+      <canvas id="canvas-ocr"></canvas>
+      <div id="selection-rect"></div>
+    </div>
+
+    <div class="ocr-hint visible" id="ocr-hint" style="display:none">
+      📌 <strong>OCR actif</strong> — Appuyez et glissez sur la zone de texte (marque, modèle) pour la reconnaître automatiquement.
+    </div>
+    <div class="ocr-target-panel" id="ocr-target-panel">
+      <button type="button" class="ocr-target-btn active" id="btn-target-nom" onclick="setChampCible('nom')">
+        <span class="ocr-target-label">Zone a remplir</span>
+        <span class="ocr-target-value empty" id="ocr-preview-nom">Designation a capturer</span>
+      </button>
+      <button type="button" class="ocr-target-btn" id="btn-target-marque" onclick="setChampCible('marque')">
+        <span class="ocr-target-label">Puis capturer</span>
+        <span class="ocr-target-value empty" id="ocr-preview-marque">Marque a capturer</span>
+      </button>
+    </div>
+    <div class="ocr-target-help" id="ocr-target-help" style="display:none">
+      Touchez d'abord le champ a remplir, puis tracez la zone correspondante directement sur la photo.
+    </div>
+    <div id="ocr-status"></div>
+
+    <div class="btn-photo-row">
+      <button class="btn btn-primary" onclick="ouvrirCamera()">
+        <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Prendre une photo
+      </button>
+      <button class="btn btn-secondary" onclick="ouvrirGalerie()">
+        <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Galerie
+      </button>
+    </div>
+    <input type="file" id="input-camera" accept="image/*">
+  </div>
+</div>
+
+<!-- ÉTAPE 2 : FORMULAIRE -->
+<div class="section">
+  <div class="section-title">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    Étape 2 — Informations
+  </div>
+  <div class="section-body">
+    <div class="form-grid">
+
+      <div>
+        <label>Désignation *</label>
+        <div class="input-with-badge">
+          <input type="text" id="f-nom" placeholder="ex : Perceuse à percussion" autocomplete="off">
+          <span class="ocr-badge" id="badge-nom">OCR</span>
+        </div>
+      </div>
+
+      <div>
+        <label>Marque *</label>
+        <div class="input-with-badge">
+          <input type="text" id="f-marque" placeholder="ex : MAKITA" autocomplete="off">
+          <span class="ocr-badge" id="badge-marque">OCR</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Catégorie</label>
+          <select id="f-categorie">
+            <option value="Électroportatif">⚡ Électroportatif</option>
+            <option value="Petit outillage">🔧 Petit outillage</option>
+            <option value="Autre">📦 Autre</option>
+          </select>
+        </div>
+        <div>
+          <label>Quantité *</label>
+          <input type="number" id="f-quantite" min="1" value="1" placeholder="1">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>État</label>
+          <select id="f-etat">
+            <option value="Bon">✅ Bon état</option>
+            <option value="Moyen">⚠️ État moyen</option>
+            <option value="HS">❌ Hors service</option>
+          </select>
+        </div>
+        <div>
+          <label>N° série / Ref.</label>
+          <input type="text" id="f-ref" placeholder="optionnel" autocomplete="off">
+        </div>
+      </div>
+
+      <div>
+        <label>Observations</label>
+        <textarea id="f-obs" rows="2" placeholder="Remarques éventuelles..."></textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-vert btn-full" onclick="ajouterArticle()">
+          <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Ajouter à l'inventaire
+        </button>
+        <button class="btn btn-secondary" onclick="resetFormulaire()" style="flex:0;padding:13px 16px">
+          <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- RÉCAP -->
+<div class="section">
+  <div class="section-title">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    Récapitulatif inventaire
+    <span id="total-label" style="margin-left:auto;font-size:12px;opacity:.8;font-weight:400"></span>
+  </div>
+  <div style="overflow-x:auto">
+    <table id="tableau-recap">
+      <thead>
+        <tr>
+          <th style="width:52px">Photo</th>
+          <th>Désignation</th>
+          <th>Marque</th>
+          <th>Catégorie</th>
+          <th style="text-align:center">Qté</th>
+          <th>État</th>
+          <th style="width:36px"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-recap">
+        <tr id="ligne-vide">
+          <td colspan="7">
+            <div class="empty-state">
+              <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="15" x2="12" y2="15"/></svg>
+              <br>Aucun article encore enregistré
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- EXPORTS -->
+<div class="section">
+  <div class="section-title">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Exporter l'inventaire
+  </div>
+  <div class="section-body">
+    <div class="export-row">
+      <button class="btn btn-rouge" onclick="exporterPDF()">
+        <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Export PDF
+      </button>
+      <button class="btn btn-vert" onclick="exporterExcel()">
+        <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+        Export Excel
+      </button>
+    </div>
+    <button class="btn btn-secondary btn-full" style="margin-top:10px" onclick="viderInventaire()">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      Vider l'inventaire
+    </button>
+  </div>
+</div>
+
+<div class="version-tag">Inventaire Terrain v1.0 — GRDF Agence Boucles de Seine Nord</div>
+<div id="toast"></div>
+
+<script>
+// ─── ÉTAT ────────────────────────────────────────────────
+let inventaire = JSON.parse(localStorage.getItem('inventaire_grdf') || '[]');
+let photoActuelle = null; // base64 de la photo en cours
+let photoActuelleBlob = null;
+
+// ─── INIT ─────────────────────────────────────────────────
+(function init() {
+  const now = new Date();
+  document.getElementById('header-date').textContent =
+    now.toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+  rafraichirTableau();
+})();
+
+// ─── CAMÉRA ───────────────────────────────────────────────
+function ouvrirCamera() {
+  const inp = document.getElementById('input-camera');
+  inp.setAttribute('capture', 'environment');
+  inp.click();
+}
+function ouvrirGalerie() {
+  const inp = document.getElementById('input-camera');
+  inp.removeAttribute('capture');
+  inp.click();
+}
+
+document.getElementById('input-camera').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    photoActuelle = ev.target.result;
+    afficherPhoto(photoActuelle);
+  };
+  reader.readAsDataURL(file);
+  this.value = '';
+});
+
+function afficherPhoto(src) {
+  const img = document.getElementById('photo-preview');
+  const placeholder = document.getElementById('placeholder-photo');
+  const hint = document.getElementById('ocr-hint');
+  const targetPanel = document.getElementById('ocr-target-panel');
+  const targetHelp = document.getElementById('ocr-target-help');
+  img.src = src;
+  img.style.display = 'block';
+  placeholder.style.display = 'none';
+  hint.style.display = 'block';
+  targetPanel.classList.add('visible');
+  targetHelp.style.display = 'block';
+  setChampCible(champCible || 'nom');
+  synchroniserPanneauOCR();
+  activerSelectionOCR();
+}
+
+// ─── OCR SÉLECTION ────────────────────────────────────────
+let selectionActive = false;
+let startX, startY, imgOffsetX, imgOffsetY, imgW, imgH;
+let champCible = 'nom'; // 'nom' ou 'marque'
+
+function setChampCible(champ) {
+  champCible = champ;
+  document.getElementById('btn-target-nom').classList.toggle('active', champ === 'nom');
+  document.getElementById('btn-target-marque').classList.toggle('active', champ === 'marque');
+}
+
+function synchroniserPanneauOCR() {
+  const nom = document.getElementById('f-nom').value.trim();
+  const marque = document.getElementById('f-marque').value.trim();
+  const nomPreview = document.getElementById('ocr-preview-nom');
+  const marquePreview = document.getElementById('ocr-preview-marque');
+
+  nomPreview.textContent = nom || 'DÃ©signation Ã  capturer';
+  nomPreview.classList.toggle('empty', !nom);
+  marquePreview.textContent = marque || 'Marque Ã  capturer';
+  marquePreview.classList.toggle('empty', !marque);
+}
+
+function activerSelectionOCR() {
+  const zone = document.getElementById('zone-photo');
+  const rect = document.getElementById('selection-rect');
+
+  // Choix du champ cible : on demande via un petit tooltip
+  zone.ontouchstart = zone.onmousedown = function(e) {
+    e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const zr = zone.getBoundingClientRect();
+    startX = clientX - zr.left;
+    startY = clientY - zr.top;
+    selectionActive = true;
+    rect.style.display = 'block';
+    rect.style.left = startX + 'px';
+    rect.style.top  = startY + 'px';
+    rect.style.width = '0px';
+    rect.style.height = '0px';
+
+    // Récupérer les dimensions réelles de l'image dans la zone
+    const imgEl = document.getElementById('photo-preview');
+    const nat = { w: imgEl.naturalWidth, h: imgEl.naturalHeight };
+    const box = zr;
+    // object-fit: contain → calcul des marges
+    const scale = Math.min(box.width / nat.w, box.height / nat.h);
+    imgW = nat.w * scale;
+    imgH = nat.h * scale;
+    imgOffsetX = (box.width  - imgW) / 2;
+    imgOffsetY = (box.height - imgH) / 2;
+  };
+
+  zone.ontouchmove = zone.onmousemove = function(e) {
+    if (!selectionActive) return;
+    e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const zr = zone.getBoundingClientRect();
+    const curX = clientX - zr.left;
+    const curY = clientY - zr.top;
+    rect.style.left   = Math.min(startX, curX) + 'px';
+    rect.style.top    = Math.min(startY, curY) + 'px';
+    rect.style.width  = Math.abs(curX - startX) + 'px';
+    rect.style.height = Math.abs(curY - startY) + 'px';
+  };
+
+  zone.ontouchend = zone.onmouseup = function(e) {
+    if (!selectionActive) return;
+    selectionActive = false;
+    const r = document.getElementById('selection-rect');
+    const w = parseFloat(r.style.width);
+    const h = parseFloat(r.style.height);
+    if (w < 15 || h < 10) { r.style.display='none'; return; }
+    lancerOCR();
+  };
+}
+
+function lancerOCR() {
+  const rect    = document.getElementById('selection-rect');
+  const imgEl   = document.getElementById('photo-preview');
+  const status  = document.getElementById('ocr-status');
+
+  // Coordonnées de la sélection dans la zone d'affichage
+  const sx = parseFloat(rect.style.left)   - imgOffsetX;
+  const sy = parseFloat(rect.style.top)    - imgOffsetY;
+  const sw = parseFloat(rect.style.width);
+  const sh = parseFloat(rect.style.height);
+
+  // Ratio image naturelle / image affichée
+  const ratioX = imgEl.naturalWidth  / imgW;
+  const ratioY = imgEl.naturalHeight / imgH;
+
+  // Canvas crop
+  const canvas = document.createElement('canvas');
+  canvas.width  = Math.round(sw * ratioX);
+  canvas.height = Math.round(sh * ratioY);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(imgEl,
+    Math.round(sx * ratioX), Math.round(sy * ratioY),
+    canvas.width, canvas.height,
+    0, 0, canvas.width, canvas.height
+  );
+
+  status.style.display = 'block';
+  status.textContent = '🔍 Analyse OCR en cours...';
+
+  // Demander quel champ remplir
+  const champ = choisirChampCible();
+
+  Tesseract.recognize(canvas.toDataURL(), 'fra+eng', {
+    logger: () => {}
+  }).then(({ data: { text } }) => {
+    const propre = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    if (propre.length > 0) {
+      const input = document.getElementById('f-' + champ);
+      const badge = document.getElementById('badge-' + champ);
+      input.value = propre;
+      badge.classList.add('visible');
+      status.textContent = `✅ OCR → "${propre.substring(0,40)}${propre.length>40?'…':''}"`;
+      setTimeout(() => { status.style.display='none'; }, 3000);
+      toast('Texte reconnu dans "' + (champ === 'nom' ? 'Désignation' : 'Marque') + '"');
+    } else {
+      status.textContent = '⚠️ Aucun texte reconnu — saisissez manuellement';
+      setTimeout(() => { status.style.display='none'; }, 3000);
+    }
+    rect.style.display = 'none';
+  }).catch(() => {
+    status.textContent = '❌ Erreur OCR — saisissez manuellement';
+    setTimeout(() => { status.style.display='none'; }, 3000);
+    rect.style.display = 'none';
+  });
+}
+
+// Alternance intelligente : premier OCR → Désignation, second → Marque
+let ocrCount = 0;
+function choisirChampCible() {
+  // Si désignation vide → nom, sinon marque, sinon demander
+  const nom    = document.getElementById('f-nom').value.trim();
+  const marque = document.getElementById('f-marque').value.trim();
+  if (!nom)    return 'nom';
+  if (!marque) return 'marque';
+  ocrCount++;
+  return ocrCount % 2 === 1 ? 'nom' : 'marque';
+}
+
+// ─── AJOUTER ARTICLE ──────────────────────────────────────
+function ajouterArticle() {
+  const nom      = document.getElementById('f-nom').value.trim();
+  const marque   = document.getElementById('f-marque').value.trim();
+  const categorie= document.getElementById('f-categorie').value;
+  const quantite = parseInt(document.getElementById('f-quantite').value) || 1;
+  const etat     = document.getElementById('f-etat').value;
+  const ref      = document.getElementById('f-ref').value.trim();
+  const obs      = document.getElementById('f-obs').value.trim();
+
+  if (!nom) { toast('⚠️ Saisissez une désignation'); return; }
+
+  const article = {
+    id: Date.now(),
+    nom, marque, categorie, quantite, etat, ref, obs,
+    photo: photoActuelle,
+    date: new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })
+  };
+
+  inventaire.push(article);
+  sauvegarder();
+  rafraichirTableau();
+  resetFormulaire();
+  toast('✅ Article ajouté à l\'inventaire');
+}
+
+function resetFormulaire() {
+  ['f-nom','f-marque','f-ref','f-obs'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-quantite').value = '1';
+  document.getElementById('f-etat').value = 'Bon';
+  ['badge-nom','badge-marque'].forEach(id => document.getElementById(id).classList.remove('visible'));
+  photoActuelle = null;
+  document.getElementById('photo-preview').style.display = 'none';
+  document.getElementById('placeholder-photo').style.display = 'flex';
+  document.getElementById('ocr-hint').style.display = 'none';
+  document.getElementById('selection-rect').style.display = 'none';
+  ocrCount = 0;
+}
+
+// ─── TABLEAU RÉCAP ────────────────────────────────────────
+function rafraichirTableau() {
+  const tbody = document.getElementById('tbody-recap');
+  const badge = document.getElementById('badge-count');
+  const total = document.getElementById('total-label');
+
+  const totalQte = inventaire.reduce((s, a) => s + a.quantite, 0);
+  badge.textContent = inventaire.length + ' article' + (inventaire.length > 1 ? 's' : '');
+  total.textContent = totalQte + ' unité' + (totalQte > 1 ? 's' : '') + ' au total';
+
+  if (inventaire.length === 0) {
+    tbody.innerHTML = `<tr id="ligne-vide"><td colspan="7"><div class="empty-state">
+      <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="15" x2="12" y2="15"/></svg>
+      <br>Aucun article encore enregistré</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = inventaire.map(a => `
+    <tr>
+      <td>${a.photo ? `<img class="mini-photo" src="${a.photo}" alt="">` : '<span style="font-size:20px">📦</span>'}</td>
+      <td><strong>${esc(a.nom)}</strong>${a.ref ? '<br><small style="color:#888">Réf: '+esc(a.ref)+'</small>':''}</td>
+      <td>${esc(a.marque || '—')}</td>
+      <td><span class="tag-cat ${tagClass(a.categorie)}">${esc(a.categorie)}</span></td>
+      <td style="text-align:center;font-weight:700;font-size:16px">${a.quantite}</td>
+      <td class="${etatClass(a.etat)}">${esc(a.etat)}</td>
+      <td><button class="btn-suppr" onclick="supprimerArticle(${a.id})">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+function tagClass(c) {
+  if (c === 'Électroportatif') return 'tag-electro';
+  if (c === 'Petit outillage')  return 'tag-petit';
+  return 'tag-autre';
+}
+function etatClass(e) {
+  if (e === 'Bon')   return 'etat-bon';
+  if (e === 'Moyen') return 'etat-moyen';
+  return 'etat-hs';
+}
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function supprimerArticle(id) {
+  inventaire = inventaire.filter(a => a.id !== id);
+  sauvegarder();
+  rafraichirTableau();
+  toast('Article supprimé');
+}
+
+function viderInventaire() {
+  if (!inventaire.length) { toast('Inventaire déjà vide'); return; }
+  if (!confirm('Vider tout l\'inventaire ? Cette action est irréversible.')) return;
+  inventaire = [];
+  sauvegarder();
+  rafraichirTableau();
+  toast('Inventaire vidé');
+}
+
+// ─── SAUVEGARDE localStorage ──────────────────────────────
+function sauvegarder() {
+  // On sauvegarde sans les photos (trop lourd) — on garde juste les données
+  // Pour les photos, on les garde quand même (utile pour le PDF)
+  try {
+    localStorage.setItem('inventaire_grdf', JSON.stringify(inventaire));
+  } catch(e) {
+    // Si trop lourd (photos), on sauvegarde sans photos
+    const sansPhoots = inventaire.map(a => ({ ...a, photo: null }));
+    localStorage.setItem('inventaire_grdf', JSON.stringify(sansPhoots));
+  }
+}
+
+// ─── EXPORT EXCEL ─────────────────────────────────────────
+function exporterExcel() {
+  if (!inventaire.length) { toast('⚠️ Inventaire vide'); return; }
+
+  const date = new Date().toLocaleDateString('fr-FR');
+  const data = [
+    ['INVENTAIRE MATERIEL — GRDF Agence Boucles de Seine Nord'],
+    ['Date :', date],
+    [],
+    ['N°','Désignation','Marque','Catégorie','Quantité','État','Référence','Observations']
+  ];
+  inventaire.forEach((a, i) => {
+    data.push([i+1, a.nom, a.marque||'', a.categorie, a.quantite, a.etat, a.ref||'', a.obs||'']);
+  });
+  data.push([]);
+  const totalQte = inventaire.reduce((s,a)=>s+a.quantite,0);
+  data.push(['','TOTAL ARTICLES :', inventaire.length, '', 'TOTAL UNITÉS :', totalQte]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:4},{wch:30},{wch:18},{wch:20},{wch:10},{wch:12},{wch:18},{wch:30}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Inventaire materiel');
+  XLSX.writeFile(wb, `Inventaire_materiel_GRDF_${date.replace(/\//g,'-')}.xlsx`);
+  toast('✅ Export Excel généré');
+}
+
+// ─── EXPORT PDF ───────────────────────────────────────────
+async function exporterPDF() {
+  if (!inventaire.length) { toast('⚠️ Inventaire vide'); return; }
+  toast('⏳ Génération du PDF...');
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const dateStr = new Date().toLocaleDateString('fr-FR');
+  const pageW = 210; const margin = 14;
+  let logoDataUrl = null;
+  try {
+    logoDataUrl = await chargerLogoDashboard();
+  } catch (e) {}
+
+  // ── En-tête ──
+  doc.setFillColor(0, 49, 137);
+  doc.rect(0, 0, pageW, 28, 'F');
+  if (logoDataUrl) {
+    try {
+      doc.addImage(logoDataUrl, 'PNG', margin, 5, 18, 18);
+    } catch (e) {}
+  }
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('INVENTAIRE MATERIEL', logoDataUrl ? margin + 22 : margin, 12);
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text('GRDF — Agence Boucles de Seine Nord', logoDataUrl ? margin + 22 : margin, 19);
+  doc.text('Date : ' + dateStr, pageW - margin, 19, { align:'right' });
+
+  // ── Résumé ──
+  const totalQte = inventaire.reduce((s,a)=>s+a.quantite,0);
+  doc.setTextColor(0,49,137);
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text(`${inventaire.length} article(s) — ${totalQte} unité(s) au total`, margin, 36);
+
+  // ── Tableau ──
+  let y = 42;
+  const cols = [14, 56, 90, 118, 148, 162, 196];
+  const headers = ['Photo','Désignation','Marque','Catégorie','Qté','État'];
+
+  doc.setFillColor(0, 49, 137);
+  doc.rect(margin, y, pageW - margin*2, 8, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(8.5); doc.setFont('helvetica','bold');
+  headers.forEach((h, i) => doc.text(h, cols[i]+1, y+5.5));
+  y += 9;
+
+  for (let i = 0; i < inventaire.length; i++) {
+    const a = inventaire[i];
+    const rowH = 22;
+
+    if (y + rowH > 280) {
+      doc.addPage();
+      y = 14;
+      doc.setFillColor(0,49,137);
+      doc.rect(margin, y, pageW-margin*2, 8, 'F');
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(8.5); doc.setFont('helvetica','bold');
+      headers.forEach((h, j) => doc.text(h, cols[j]+1, y+5.5));
+      y += 9;
+    }
+
+    // Fond alterné
+    if (i % 2 === 0) { doc.setFillColor(240,242,247); doc.rect(margin, y, pageW-margin*2, rowH, 'F'); }
+
+    doc.setTextColor(26,31,54);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+
+    // Photo miniature
+    if (a.photo) {
+      try {
+        doc.addImage(a.photo, 'JPEG', cols[0], y+1, 18, 18);
+      } catch(e) {}
+    }
+
+    // Textes
+    const wrap = (t, maxW) => {
+      const words = String(t||'').split(' ');
+      let lines = ['']; 
+      words.forEach(w => {
+        const test = lines[lines.length-1] + (lines[lines.length-1]?'  ':'')+w;
+        if (doc.getTextWidth(test) > maxW) lines.push(w);
+        else lines[lines.length-1] = test;
+      });
+      return lines.slice(0,2);
+    };
+
+    doc.setFont('helvetica','bold');
+    const nomLines = wrap(a.nom, 31);
+    nomLines.forEach((l,j) => doc.text(l, cols[1]+1, y+5.5+j*4));
+
+    doc.setFont('helvetica','normal');
+    doc.text(String(a.marque||'—'), cols[2]+1, y+5.5);
+    doc.text(String(a.categorie), cols[3]+1, y+5.5);
+    doc.text(String(a.quantite), cols[4]+3, y+5.5, {align:'center'});
+
+    // État coloré
+    const ec = a.etat==='Bon'?[26,171,109]:a.etat==='Moyen'?[245,130,10]:[224,52,52];
+    doc.setTextColor(...ec); doc.setFont('helvetica','bold');
+    doc.text(a.etat, cols[5]+1, y+5.5);
+    doc.setTextColor(26,31,54); doc.setFont('helvetica','normal');
+
+    if (a.obs) {
+      doc.setFontSize(7); doc.setTextColor(120,130,160);
+      doc.text('→ '+String(a.obs).substring(0,55), cols[1]+1, y+rowH-3);
+      doc.setTextColor(26,31,54); doc.setFontSize(8);
+    }
+
+    // Séparateur
+    doc.setDrawColor(208,214,228);
+    doc.line(margin, y+rowH, pageW-margin, y+rowH);
+    y += rowH;
+  }
+
+  // ── Pied de page ──
+  y += 6;
+  doc.setFillColor(0,49,137);
+  doc.rect(margin, y, pageW-margin*2, 8, 'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','bold');
+  doc.text(`TOTAL : ${inventaire.length} article(s) — ${totalQte} unité(s)`, margin+2, y+5.5);
+  doc.text('Inventaire matériel v1.0', pageW-margin, y+5.5, {align:'right'});
+
+  doc.save(`Inventaire_materiel_GRDF_${dateStr.replace(/\//g,'-')}.pdf`);
+  toast('✅ Export PDF généré');
+}
+
+// ─── TOAST ───────────────────────────────────────────────
+// Flux OCR tablette
+synchroniserPanneauOCR = function() {
+  const nom = document.getElementById('f-nom').value.trim();
+  const marque = document.getElementById('f-marque').value.trim();
+  const nomPreview = document.getElementById('ocr-preview-nom');
+  const marquePreview = document.getElementById('ocr-preview-marque');
+
+  nomPreview.textContent = nom || 'Designation a capturer';
+  nomPreview.classList.toggle('empty', !nom);
+  marquePreview.textContent = marque || 'Marque a capturer';
+  marquePreview.classList.toggle('empty', !marque);
+};
+
+synchroniserPanneauOCR();
+
+const afficherPhotoOriginal = afficherPhoto;
+afficherPhoto = function(src) {
+  afficherPhotoOriginal(src);
+  document.getElementById('ocr-target-panel').classList.add('visible');
+  document.getElementById('ocr-target-help').style.display = 'block';
+  setChampCible(champCible || 'nom');
+  synchroniserPanneauOCR();
+};
+
+const resetFormulaireOriginal = resetFormulaire;
+resetFormulaire = function() {
+  resetFormulaireOriginal();
+  document.getElementById('ocr-target-panel').classList.remove('visible');
+  document.getElementById('ocr-target-help').style.display = 'none';
+  setChampCible('nom');
+  synchroniserPanneauOCR();
+};
+
+choisirChampCible = function() {
+  return champCible || 'nom';
+};
+
+lancerOCR = function() {
+  const rect = document.getElementById('selection-rect');
+  const imgEl = document.getElementById('photo-preview');
+  const status = document.getElementById('ocr-status');
+  const sx = parseFloat(rect.style.left) - imgOffsetX;
+  const sy = parseFloat(rect.style.top) - imgOffsetY;
+  const sw = parseFloat(rect.style.width);
+  const sh = parseFloat(rect.style.height);
+  const ratioX = imgEl.naturalWidth / imgW;
+  const ratioY = imgEl.naturalHeight / imgH;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(sw * ratioX);
+  canvas.height = Math.round(sh * ratioY);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(
+    imgEl,
+    Math.round(sx * ratioX), Math.round(sy * ratioY),
+    canvas.width, canvas.height,
+    0, 0, canvas.width, canvas.height
+  );
+
+  status.style.display = 'block';
+  status.textContent = 'Analyse OCR en cours...';
+
+  const champ = choisirChampCible();
+
+  Tesseract.recognize(canvas.toDataURL(), 'fra+eng', {
+    logger: () => {}
+  }).then(({ data: { text } }) => {
+    const propre = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    if (propre.length > 0) {
+      const input = document.getElementById('f-' + champ);
+      const badge = document.getElementById('badge-' + champ);
+      input.value = propre;
+      badge.classList.add('visible');
+      synchroniserPanneauOCR();
+      status.textContent = `OCR -> "${propre.substring(0,40)}${propre.length>40?'...':''}"`;
+      setTimeout(() => { status.style.display = 'none'; }, 3000);
+      toast('Texte reconnu dans "' + (champ === 'nom' ? 'Designation' : 'Marque') + '"');
+      if (champ === 'nom') setChampCible('marque');
+    } else {
+      status.textContent = 'Aucun texte reconnu - saisissez manuellement';
+      setTimeout(() => { status.style.display = 'none'; }, 3000);
+    }
+    rect.style.display = 'none';
+  }).catch(() => {
+    status.textContent = 'Erreur OCR - saisissez manuellement';
+    setTimeout(() => { status.style.display = 'none'; }, 3000);
+    rect.style.display = 'none';
+  });
+};
+
+['f-nom', 'f-marque'].forEach((id) => {
+  const champ = id === 'f-nom' ? 'nom' : 'marque';
+  const input = document.getElementById(id);
+  input.addEventListener('focus', () => setChampCible(champ));
+  input.addEventListener('input', synchroniserPanneauOCR);
+});
+
+let modeSelectionPhoto = 'ocr';
+let photoZoomNiveau = 0;
+const hauteurZoneBase = { desktop: 400, tablet: 320, mobile: 250 };
+
+const styleOutilsPhoto = document.createElement('style');
+styleOutilsPhoto.textContent = `
+  .capture-workspace {
+    display: block;
+  }
+  .section-photo,
+  .section-form {
+    margin: 16px;
+  }
+  .photo-workbench {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .photo-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-content: start;
+  }
+  .photo-media-column {
+    min-width: 0;
+  }
+  .photo-toolbar .btn-photo-row {
+    margin-top: 0;
+  }
+  .photo-tools {
+    display: none;
+    gap: 8px;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .photo-tools.visible { display: grid; }
+  .photo-tool-btn {
+    border: 1.5px solid var(--gris-bord);
+    background: white;
+    border-radius: 10px;
+    padding: 10px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--texte);
+    cursor: pointer;
+  }
+  .photo-tool-btn.active {
+    border-color: var(--orange);
+    background: #fff4e8;
+    color: #8a4e00;
+  }
+  .photo-tool-wide {
+    grid-column: span 2;
+  }
+  .photo-zoom-label {
+    font-size: 12px;
+    color: var(--texte-doux);
+    display: none;
+  }
+  .photo-zoom-label.visible { display: block; }
+  @media (min-width: 980px) {
+    .capture-workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(360px, .85fr);
+      gap: 0;
+      align-items: start;
+    }
+    .capture-workspace .section-photo,
+    .capture-workspace .section-form {
+      margin: 16px 8px;
+    }
+    .capture-workspace .section-photo { margin-left: 16px; }
+    .capture-workspace .section-form { margin-right: 16px; }
+    .photo-workbench {
+      grid-template-columns: 110px minmax(0, 1fr);
+      align-items: start;
+    }
+    .photo-toolbar {
+      position: sticky;
+      top: 92px;
+    }
+    .photo-toolbar .btn-photo-row,
+    .photo-toolbar .photo-tools {
+      display: grid !important;
+      grid-template-columns: 1fr;
+    }
+    .photo-toolbar .btn,
+    .photo-toolbar .photo-tool-btn {
+      width: 100%;
+      justify-content: flex-start;
+      text-align: left;
+      min-height: 46px;
+    }
+    .photo-toolbar .photo-tool-wide {
+      grid-column: span 1;
+    }
+    .section-form .section-body {
+      max-height: calc(100vh - 150px);
+      overflow: auto;
+    }
+  }
+  @media (max-width: 640px) {
+    .photo-tools {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .photo-tool-wide {
+      grid-column: span 1;
+    }
+  }
+`;
+document.head.appendChild(styleOutilsPhoto);
+
+document.querySelector('.btn-photo-row').insertAdjacentHTML('afterend', `
+  <div class="photo-tools" id="photo-tools">
+    <button type="button" class="photo-tool-btn" onclick="modifierZoomPhoto(-1)">Zoom -</button>
+    <button type="button" class="photo-tool-btn" onclick="modifierZoomPhoto(1)">Zoom +</button>
+    <button type="button" class="photo-tool-btn" onclick="tournerPhoto()">Tourner</button>
+    <button type="button" class="photo-tool-btn" id="btn-crop-mode" onclick="activerModeRecadrage()">Recadrer</button>
+    <button type="button" class="photo-tool-btn photo-tool-wide" onclick="resetAjustementsPhoto()">Reinitialiser</button>
+  </div>
+  <div class="photo-zoom-label" id="photo-zoom-label">Zoom photo: 100%</div>
+`);
+
+const sections = Array.from(document.querySelectorAll('body > .section'));
+if (sections.length >= 2) {
+  const workspace = document.createElement('div');
+  workspace.className = 'capture-workspace';
+  sections[0].classList.add('section-photo');
+  sections[1].classList.add('section-form');
+  sections[0].before(workspace);
+  workspace.appendChild(sections[0]);
+  workspace.appendChild(sections[1]);
+}
+
+const photoSectionBody = document.querySelector('.section-photo .section-body');
+if (photoSectionBody) {
+  const workbench = document.createElement('div');
+  workbench.className = 'photo-workbench';
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'photo-toolbar';
+
+  const mediaColumn = document.createElement('div');
+  mediaColumn.className = 'photo-media-column';
+
+  const btnRow = photoSectionBody.querySelector('.btn-photo-row');
+  const photoTools = document.getElementById('photo-tools');
+  const zoomLabel = document.getElementById('photo-zoom-label');
+  const zonePhoto = document.getElementById('zone-photo');
+  const ocrHint = document.getElementById('ocr-hint');
+  const ocrTargets = document.getElementById('ocr-target-panel');
+  const ocrHelp = document.getElementById('ocr-target-help');
+  const ocrStatus = document.getElementById('ocr-status');
+  const inputCamera = document.getElementById('input-camera');
+
+  if (btnRow) toolbar.appendChild(btnRow);
+  if (photoTools) toolbar.appendChild(photoTools);
+  if (zoomLabel) toolbar.appendChild(zoomLabel);
+
+  [zonePhoto, ocrHint, ocrTargets, ocrHelp, ocrStatus].forEach((node) => {
+    if (node) mediaColumn.appendChild(node);
+  });
+
+  workbench.appendChild(toolbar);
+  workbench.appendChild(mediaColumn);
+  photoSectionBody.prepend(workbench);
+  if (inputCamera) photoSectionBody.appendChild(inputCamera);
+}
+
+function getHauteurZoneBase() {
+  if (window.innerWidth <= 640) return hauteurZoneBase.mobile;
+  if (window.innerWidth <= 900) return hauteurZoneBase.tablet;
+  return hauteurZoneBase.desktop;
+}
+
+function appliquerZoomPhoto() {
+  const zone = document.getElementById('zone-photo');
+  const label = document.getElementById('photo-zoom-label');
+  const facteur = 1 + (photoZoomNiveau * 0.18);
+  const hauteur = Math.round(getHauteurZoneBase() * facteur);
+  zone.style.height = hauteur + 'px';
+  label.textContent = 'Zoom photo: ' + Math.round(facteur * 100) + '%';
+  label.classList.toggle('visible', !!photoActuelle);
+}
+
+function modifierZoomPhoto(delta) {
+  if (!photoActuelle) {
+    toast('Chargez une photo d\'abord');
+    return;
+  }
+  photoZoomNiveau = Math.max(0, Math.min(4, photoZoomNiveau + delta));
+  appliquerZoomPhoto();
+}
+
+function setModeSelectionPhoto(mode) {
+  modeSelectionPhoto = mode;
+  const cropBtn = document.getElementById('btn-crop-mode');
+  if (cropBtn) cropBtn.classList.toggle('active', mode === 'crop');
+}
+
+function activerModeRecadrage() {
+  if (!photoActuelle) {
+    toast('Chargez une photo avant de recadrer');
+    return;
+  }
+  setModeSelectionPhoto(modeSelectionPhoto === 'crop' ? 'ocr' : 'crop');
+  toast(modeSelectionPhoto === 'crop' ? 'Tracez la zone a conserver sur la photo' : 'Mode OCR reactive');
+}
+
+function imageDepuisDataUrl(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function remplacerPhotoActuelle(src) {
+  photoActuelle = src;
+  const imgEl = document.getElementById('photo-preview');
+  imgEl.src = src;
+  imgEl.style.display = 'block';
+  document.getElementById('placeholder-photo').style.display = 'none';
+  document.getElementById('photo-tools').classList.add('visible');
+  appliquerZoomPhoto();
+}
+
+async function tournerPhoto() {
+  if (!photoActuelle) {
+    toast('Chargez une photo avant de la tourner');
+    return;
+  }
+  const img = await imageDepuisDataUrl(photoActuelle);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.height;
+  canvas.height = img.width;
+  const ctx = canvas.getContext('2d');
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(Math.PI / 2);
+  ctx.drawImage(img, -img.width / 2, -img.height / 2);
+  await remplacerPhotoActuelle(canvas.toDataURL('image/jpeg', 0.92));
+  setModeSelectionPhoto('ocr');
+  toast('Photo tournee');
+}
+
+async function recadrerSelonSelection(selection) {
+  const img = await imageDepuisDataUrl(photoActuelle);
+  const canvas = document.createElement('canvas');
+  canvas.width = selection.sw;
+  canvas.height = selection.sh;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(
+    img,
+    selection.sx, selection.sy, selection.sw, selection.sh,
+    0, 0, selection.sw, selection.sh
+  );
+  await remplacerPhotoActuelle(canvas.toDataURL('image/jpeg', 0.92));
+  setModeSelectionPhoto('ocr');
+  toast('Photo recadree');
+}
+
+function resetAjustementsPhoto() {
+  if (!photoActuelle) {
+    toast('Aucune photo a reajuster');
+    return;
+  }
+  photoZoomNiveau = 0;
+  appliquerZoomPhoto();
+  setModeSelectionPhoto('ocr');
+  toast('Zoom reinitialise');
+}
+
+activerSelectionOCR = function() {
+  const zone = document.getElementById('zone-photo');
+  const rect = document.getElementById('selection-rect');
+
+  zone.ontouchstart = zone.onmousedown = function(e) {
+    if (!photoActuelle) return;
+    e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const zr = zone.getBoundingClientRect();
+    startX = clientX - zr.left;
+    startY = clientY - zr.top;
+    selectionActive = true;
+    rect.style.display = 'block';
+    rect.style.left = startX + 'px';
+    rect.style.top = startY + 'px';
+    rect.style.width = '0px';
+    rect.style.height = '0px';
+
+    const imgEl = document.getElementById('photo-preview');
+    const nat = { w: imgEl.naturalWidth, h: imgEl.naturalHeight };
+    const scale = Math.min(zr.width / nat.w, zr.height / nat.h);
+    imgW = nat.w * scale;
+    imgH = nat.h * scale;
+    imgOffsetX = (zr.width - imgW) / 2;
+    imgOffsetY = (zr.height - imgH) / 2;
+  };
+
+  zone.ontouchmove = zone.onmousemove = function(e) {
+    if (!selectionActive) return;
+    e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const zr = zone.getBoundingClientRect();
+    const curX = clientX - zr.left;
+    const curY = clientY - zr.top;
+    rect.style.left = Math.min(startX, curX) + 'px';
+    rect.style.top = Math.min(startY, curY) + 'px';
+    rect.style.width = Math.abs(curX - startX) + 'px';
+    rect.style.height = Math.abs(curY - startY) + 'px';
+  };
+
+  zone.ontouchend = zone.onmouseup = async function() {
+    if (!selectionActive) return;
+    selectionActive = false;
+    const w = parseFloat(rect.style.width);
+    const h = parseFloat(rect.style.height);
+    if (w < 15 || h < 10) {
+      rect.style.display = 'none';
+      return;
+    }
+
+    const imgEl = document.getElementById('photo-preview');
+    const ratioX = imgEl.naturalWidth / imgW;
+    const ratioY = imgEl.naturalHeight / imgH;
+    const selection = {
+      sx: Math.max(0, Math.round((parseFloat(rect.style.left) - imgOffsetX) * ratioX)),
+      sy: Math.max(0, Math.round((parseFloat(rect.style.top) - imgOffsetY) * ratioY)),
+      sw: Math.max(1, Math.round(w * ratioX)),
+      sh: Math.max(1, Math.round(h * ratioY))
+    };
+
+    if (modeSelectionPhoto === 'crop') {
+      rect.style.display = 'none';
+      await recadrerSelonSelection(selection);
+      return;
+    }
+
+    lancerOCR();
+  };
+};
+
+const afficherPhotoAvecOutilsOriginal = afficherPhoto;
+afficherPhoto = function(src) {
+  afficherPhotoAvecOutilsOriginal(src);
+  document.getElementById('photo-tools').classList.add('visible');
+  photoZoomNiveau = 0;
+  appliquerZoomPhoto();
+  setModeSelectionPhoto('ocr');
+};
+
+const resetFormulaireAvecOutilsOriginal = resetFormulaire;
+resetFormulaire = function() {
+  resetFormulaireAvecOutilsOriginal();
+  document.getElementById('photo-tools').classList.remove('visible');
+  document.getElementById('photo-zoom-label').classList.remove('visible');
+  document.getElementById('zone-photo').style.height = '';
+  photoZoomNiveau = 0;
+  setModeSelectionPhoto('ocr');
+};
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>

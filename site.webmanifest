@@ -1,0 +1,17 @@
+{
+  "name": "Inventaire matériel",
+  "short_name": "Inventaire",
+  "description": "Inventaire matériel avec photo, OCR et exports PDF/Excel.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#003189",
+  "theme_color": "#003189",
+  "icons": [
+    {
+      "src": "./dashboard-favicon.png",
+      "sizes": "282x282",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
