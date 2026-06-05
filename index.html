@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Inventaire Terrain v2.1 — GRDF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bleu-nuit:   #0b1630;
+  --bleu-prof:   #0e1e45;
+  --bleu:        #003189;
+  --bleu-vif:    #1455d3;
+  --orange:      #f5820a;
+  --orange-clair:#ff9c2e;
+  --vert:        #18c97a;
+  --rouge:       #e63946;
+  --jaune:       #ffd166;
+  --blanc:       #ffffff;
+  --gris-clair:  #f4f6fb;
+  --gris-bord:   #dde2ef;
+  --texte:       #111827;
+  --texte-doux:  #5b6580;
+  --card-shadow: 0 2px 16px rgba(11,22,48,0.10), 0 1px 4px rgba(11,22,48,0.07);
+  --rayon:       16px;
+  --rayon-sm:    10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+
+body {
+  font-family: 'Barlow', sans-serif;
+  background: var(--gris-clair);
+  color: var(--texte);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ═══ HEADER ══════════════════════════════════════════════ */
+header {
+  background: linear-gradient(135deg, var(--bleu-nuit) 0%, var(--bleu-prof) 60%, #112258 100%);
+  padding: 0 20px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: sticky; top:0; z-index:200;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+  border-bottom: 2px solid rgba(245,130,10,0.4);
+}
+.logo {
+  width:40px; height:40px; flex-shrink:0;
+  background: var(--orange);
+  border-radius: 10px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:800; font-size:20px; color:white;
+  letter-spacing:-1px;
+  box-shadow: 0 0 0 3px rgba(245,130,10,0.25);
+}
+.header-title { flex:1; }
+.header-title h1 {
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:800; font-size:20px; color:white;
+  letter-spacing:.5px; line-height:1;
+}
+.header-title p { font-size:11.5px; color:rgba(255,255,255,0.5); margin-top:3px; }
+.header-right { display:flex; align-items:center; gap:10px; }
+.chip {
+  background:rgba(245,130,10,0.18);
+  border:1.5px solid rgba(245,130,10,0.4);
+  color: var(--orange-clair);
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:700; font-size:15px;
+  padding:5px 14px; border-radius:30px;
+  white-space:nowrap;
+}
+
+/* ═══ LAYOUT PRINCIPAL ════════════════════════════════════ */
+
+/* ── PC & tablette paysage (≥ 900px) ── */
+@media (min-width: 900px) {
+  .app-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 0;
+    align-items: start;        /* important : pas d'étirement forcé */
+  }
+  .col-saisie {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    /* scroll naturel : PAS de max-height, PAS d'overflow */
+    overflow: visible;
+    padding-bottom: 40px;
+  }
+  .col-historique {
+    background: var(--bleu-nuit);
+    border-left: 1px solid rgba(255,255,255,0.07);
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 64px);   /* panel fixe à droite uniquement */
+    position: sticky;
+    top: 64px;
+    overflow: hidden;
+  }
+}
+
+/* ── Tablette portrait (600–899px) ── */
+@media (min-width: 600px) and (max-width: 899px) {
+  .app-layout {
+    display: flex;
+    flex-direction: column;
+  }
+  .col-saisie {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-bottom: 20px;
+  }
+  .col-historique {
+    background: var(--bleu-nuit);
+    border-left: none;
+    border-top: 2px solid rgba(245,130,10,0.35);
+    display: flex;
+    flex-direction: column;
+    max-height: 480px;
+    position: static;
+    overflow: hidden;
+  }
+}
+
+/* ── Mobile portrait (< 600px) ── */
+@media (max-width: 599px) {
+  .app-layout {
+    display: flex;
+    flex-direction: column;
+  }
+  .col-saisie {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 20px;
+  }
+  .col-historique {
+    background: var(--bleu-nuit);
+    border-left: none;
+    border-top: 2px solid rgba(245,130,10,0.35);
+    display: flex;
+    flex-direction: column;
+    max-height: 420px;
+    position: static;
+    overflow: hidden;
+  }
+}
+.hist-header {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink:0;
+}
+.hist-header h2 {
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:800; font-size:16px;
+  color:rgba(255,255,255,0.85);
+  letter-spacing:.5px;
+  text-transform:uppercase;
+  display:flex; align-items:center; gap:8px;
+}
+.hist-stats {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:8px; margin-top:12px;
+}
+.stat-box {
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:10px;
+  padding:8px 12px;
+  text-align:center;
+}
+.stat-box .val {
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:800; font-size:22px; color:var(--orange);
+  line-height:1;
+}
+.stat-box .lbl { font-size:10px; color:rgba(255,255,255,0.4); margin-top:3px; text-transform:uppercase; letter-spacing:.5px; }
+
+.hist-scroll {
+  flex:1;
+  overflow-y:auto;
+  padding:10px 12px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.hist-scroll::-webkit-scrollbar { width:4px; }
+.hist-scroll::-webkit-scrollbar-track { background:transparent; }
+.hist-scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.12); border-radius:4px; }
+
+/* Carte historique */
+.hist-card {
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;
+  padding:10px;
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  animation: slideIn .25s ease;
+  cursor:pointer;
+  transition:background .15s;
+}
+.hist-card:hover { background:rgba(255,255,255,0.10); }
+@keyframes slideIn {
+  from { opacity:0; transform:translateX(16px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+.hist-thumb {
+  width:44px; height:44px; flex-shrink:0;
+  border-radius:8px;
+  object-fit:cover;
+  border:1.5px solid rgba(255,255,255,0.1);
+  background:#1a2545;
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px;
+  overflow:hidden;
+}
+.hist-thumb img { width:100%; height:100%; object-fit:cover; }
+.hist-info { flex:1; min-width:0; }
+.hist-nom {
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:700; font-size:14px;
+  color:rgba(255,255,255,0.9);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.hist-marque { font-size:11px; color:rgba(255,255,255,0.45); margin-top:2px; }
+.hist-bottom { display:flex; align-items:center; justify-content:space-between; margin-top:6px; }
+.hist-qte {
+  background:var(--orange);
+  color:white; font-weight:800;
+  font-size:11px; border-radius:6px;
+  padding:2px 8px;
+  font-family:'Barlow Condensed',sans-serif;
+}
+.hist-etat { font-size:10px; font-weight:700; }
+.hist-etat.bon   { color:var(--vert); }
+.hist-etat.moyen { color:var(--jaune); }
+.hist-etat.hs    { color:var(--rouge); }
+.hist-del {
+  background:none; border:none;
+  color:rgba(255,255,255,0.2);
+  font-size:14px; cursor:pointer;
+  padding:4px; border-radius:6px;
+  flex-shrink:0;
+  transition:color .15s, background .15s;
+}
+.hist-del:hover { color:var(--rouge); background:rgba(230,57,70,0.15); }
+
+.hist-empty {
+  text-align:center;
+  padding:40px 20px;
+  color:rgba(255,255,255,0.2);
+  font-size:13px;
+}
+.hist-empty svg { opacity:.2; margin-bottom:10px; }
+
+/* Exports bas historique */
+.hist-exports {
+  padding:12px;
+  border-top:1px solid rgba(255,255,255,0.08);
+  display:flex; flex-direction:column; gap:8px;
+  flex-shrink:0;
+}
+.btn-export {
+  display:flex; align-items:center; justify-content:center;
+  gap:8px; padding:10px;
+  border:none; border-radius:10px;
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:700; font-size:14px; letter-spacing:.3px;
+  cursor:pointer; transition:all .15s;
+}
+.btn-export:active { transform:scale(.97); }
+.btn-export-pdf  { background:rgba(230,57,70,0.15); color:var(--rouge); border:1.5px solid rgba(230,57,70,0.3); }
+.btn-export-pdf:hover { background:var(--rouge); color:white; }
+.btn-export-xl   { background:rgba(24,201,122,0.12); color:var(--vert); border:1.5px solid rgba(24,201,122,0.25); }
+.btn-export-xl:hover  { background:var(--vert); color:white; }
+.btn-export-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+
+/* ═══ CARDS ════════════════════════════════════════════════ */
+.card {
+  background:var(--blanc);
+  border-radius:var(--rayon);
+  box-shadow:var(--card-shadow);
+  overflow:hidden;
+}
+.card-header {
+  padding:13px 18px;
+  display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--gris-bord);
+  background:linear-gradient(90deg, #f9fafd 0%, var(--blanc) 100%);
+}
+.card-header-icon {
+  width:32px; height:32px;
+  background:linear-gradient(135deg,var(--bleu),var(--bleu-vif));
+  border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+}
+.card-header h2 {
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:800; font-size:15px;
+  letter-spacing:.5px; text-transform:uppercase;
+  color:var(--bleu);
+}
+.step-badge {
+  margin-left:auto;
+  background:var(--bleu);
+  color:white;
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:800; font-size:13px;
+  width:26px; height:26px;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+}
+.card-body { padding:18px; }
+
+/* ═══ ZONE PHOTO ═══════════════════════════════════════════ */
+#zone-photo {
+  width:100%;
+  aspect-ratio:16/9;
+  background:linear-gradient(145deg,#0d1933,#162040);
+  border-radius:12px;
+  overflow:hidden;
+  position:relative;
+  cursor:crosshair;
+  user-select:none;
+  touch-action:none;
+  border:2px solid rgba(20,85,211,0.2);
+  box-shadow:inset 0 2px 20px rgba(0,0,0,0.3);
+}
+#photo-preview { width:100%; height:100%; object-fit:contain; display:none; }
+.photo-placeholder {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:12px; color:rgba(255,255,255,0.25);
+}
+.photo-placeholder .big-icon { font-size:48px; opacity:.4; }
+.photo-placeholder p { font-size:13px; }
+
+#selection-rect {
+  position:absolute;
+  border:2.5px solid var(--orange);
+  background:rgba(245,130,10,0.12);
+  box-shadow:0 0 0 1px rgba(245,130,10,0.3), inset 0 0 20px rgba(245,130,10,0.05);
+  display:none;
+  pointer-events:none;
+  border-radius:4px;
+}
+/* Coins OCR */
+#selection-rect::before,
+#selection-rect::after {
+  content:'';
+  position:absolute;
+  width:12px; height:12px;
+  border-color:var(--orange-clair);
+  border-style:solid;
+}
+#selection-rect::before { top:-2px; left:-2px; border-width:3px 0 0 3px; border-radius:3px 0 0 0; }
+#selection-rect::after  { bottom:-2px; right:-2px; border-width:0 3px 3px 0; border-radius:0 0 3px 0; }
+
+/* Boutons photo */
+.btn-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+.btn {
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  padding:13px 16px; border:none; border-radius:var(--rayon-sm);
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:700; font-size:15px; letter-spacing:.3px;
+  cursor:pointer; transition:all .15s;
+}
+.btn:active { transform:scale(.96); }
+.btn-cam  { background:linear-gradient(135deg,var(--bleu),var(--bleu-vif)); color:white; box-shadow:0 4px 14px rgba(20,85,211,0.3); }
+.btn-gal  { background:var(--gris-clair); color:var(--texte); border:1.5px solid var(--gris-bord); }
+.btn-add  { background:linear-gradient(135deg,#15a866,var(--vert)); color:white; box-shadow:0 4px 14px rgba(24,201,122,0.3); padding:14px; font-size:16px; }
+.btn-reset{ background:var(--gris-clair); color:var(--texte-doux); border:1.5px solid var(--gris-bord); padding:14px 18px; }
+.btn-add-row { display:grid; grid-template-columns:1fr auto; gap:10px; margin-top:6px; }
+
+/* OCR hint */
+.ocr-hint {
+  background:linear-gradient(90deg,#fff8ed,#fffdf5);
+  border:1.5px solid #f5c55a;
+  border-radius:10px;
+  padding:10px 14px;
+  font-size:12.5px; color:#7a4700;
+  margin-top:12px;
+  display:none;
+  line-height:1.5;
+}
+.ocr-hint strong { color:#c06000; }
+
+#ocr-status {
+  font-size:12px; font-weight:600;
+  color:var(--bleu-vif);
+  margin-top:8px; min-height:18px;
+  display:none;
+}
+
+/* ═══ FORMULAIRE ═══════════════════════════════════════════ */
+.form-grid { display:grid; gap:14px; }
+.form-row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.form-row3 { display:grid; grid-template-columns:1fr 1fr 80px; gap:12px; }
+
+label {
+  font-size:11px; font-weight:700;
+  color:var(--texte-doux);
+  letter-spacing:.5px; text-transform:uppercase;
+  display:block; margin-bottom:5px;
+}
+
+.input-wrap { position:relative; }
+input, select, textarea {
+  width:100%; padding:11px 14px;
+  border:1.5px solid var(--gris-bord);
+  border-radius:var(--rayon-sm);
+  font-size:15px; color:var(--texte);
+  font-family:'Barlow',sans-serif;
+  background:var(--gris-clair);
+  outline:none; transition:all .15s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color:var(--bleu-vif);
+  background:white;
+  box-shadow:0 0 0 3px rgba(20,85,211,0.08);
+}
+input[type="number"] { -moz-appearance:textfield; }
+
+.ocr-pill {
+  position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  background:var(--orange); color:white;
+  font-size:9.5px; font-weight:800;
+  padding:2px 8px; border-radius:6px;
+  letter-spacing:.5px; display:none;
+  font-family:'Barlow Condensed',sans-serif;
+  animation: popIn .2s ease;
+}
+@keyframes popIn { from { transform:translateY(-50%) scale(.7); opacity:0; } to { transform:translateY(-50%) scale(1); opacity:1; } }
+.ocr-pill.on { display:block; }
+
+
+/* ═══ TOAST ════════════════════════════════════════════════ */
+#toast {
+  position:fixed; bottom:24px; left:50%;
+  transform:translateX(-50%) translateY(80px);
+  background:var(--bleu-nuit);
+  color:white; border:1px solid rgba(255,255,255,0.12);
+  padding:12px 24px; border-radius:30px;
+  font-size:14px; font-weight:600;
+  box-shadow:0 8px 32px rgba(0,0,0,0.4);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  z-index:999; white-space:nowrap;
+  font-family:'Barlow Condensed',sans-serif;
+  letter-spacing:.3px;
+}
+#toast.show { transform:translateX(-50%) translateY(0); }
+
+/* version */
+.ver { text-align:center; font-size:11px; color:rgba(255,255,255,0.2); padding:10px 0 16px; font-family:'Barlow Condensed',sans-serif; }
+
+#input-camera { display:none; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">G</div>
+  <div class="header-title">
+    <h1>Inventaire Terrain</h1>
+    <p id="header-date"></p>
+  </div>
+  <div class="header-right">
+    <div class="chip" id="chip-count">0 article</div>
+  </div>
+</header>
+
+<div class="app-layout">
+
+  <!-- ═══ COLONNE GAUCHE : SAISIE ════════════════════════ -->
+  <div class="col-saisie">
+
+    <!-- ÉTAPE 1 : PHOTO -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-icon">
+          <svg width="16" height="16" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+        <h2>Photo & Reconnaissance OCR</h2>
+        <div class="step-badge">1</div>
+      </div>
+      <div class="card-body">
+        <div id="zone-photo">
+          <div class="photo-placeholder" id="ph-placeholder">
+            <div class="big-icon">📷</div>
+            <p>Prenez une photo pour commencer</p>
+          </div>
+          <img id="photo-preview" src="" alt="">
+          <div id="selection-rect"></div>
+        </div>
+
+        <div class="ocr-hint" id="ocr-hint">
+          ✦ <strong>OCR actif</strong> — Tracez un rectangle sur la marque ou le modèle pour le reconnaître automatiquement. Premier tracé → <strong>Désignation</strong>, deuxième → <strong>Marque</strong>.
+        </div>
+        <div id="ocr-status"></div>
+
+        <div class="btn-row">
+          <button class="btn btn-cam" onclick="ouvrirCamera()">
+            <svg width="16" height="16" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Prendre une photo
+          </button>
+          <button class="btn btn-gal" onclick="ouvrirGalerie()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Galerie
+          </button>
+        </div>
+        <input type="file" id="input-camera" accept="image/*">
+      </div>
+    </div>
+
+    <!-- ÉTAPE 2 : FORMULAIRE -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-icon">
+          <svg width="16" height="16" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
+        <h2>Informations</h2>
+        <div class="step-badge">2</div>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+
+          <div class="form-row2">
+            <div>
+              <label>Désignation *</label>
+              <div class="input-wrap">
+                <input type="text" id="f-nom" placeholder="ex : Perceuse percussion" autocomplete="off">
+                <span class="ocr-pill" id="badge-nom">OCR</span>
+              </div>
+            </div>
+            <div>
+              <label>Marque *</label>
+              <div class="input-wrap">
+                <input type="text" id="f-marque" placeholder="ex : MAKITA" autocomplete="off">
+                <span class="ocr-pill" id="badge-marque">OCR</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row3">
+            <div>
+              <label>Catégorie</label>
+              <select id="f-categorie">
+                <option value="Électroportatif">⚡ Électroportatif</option>
+                <option value="Petit outillage">🔧 Petit outillage</option>
+                <option value="Autre">📦 Autre</option>
+              </select>
+            </div>
+            <div>
+              <label>État</label>
+              <select id="f-etat">
+                <option value="Bon">✅ Bon</option>
+                <option value="Moyen">⚠️ Moyen</option>
+                <option value="HS">❌ H.S.</option>
+              </select>
+            </div>
+            <div>
+              <label>Quantité</label>
+              <input type="number" id="f-quantite" min="1" value="1">
+            </div>
+          </div>
+
+          <div class="form-row2">
+            <div>
+              <label>N° Série / Réf.</label>
+              <input type="text" id="f-ref" placeholder="optionnel" autocomplete="off">
+            </div>
+            <div>
+              <label>Observations</label>
+              <input type="text" id="f-obs" placeholder="remarques..." autocomplete="off">
+            </div>
+          </div>
+
+          <div class="btn-add-row">
+            <button class="btn btn-add" onclick="ajouterArticle()">
+              <svg width="18" height="18" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              Ajouter à l'inventaire
+            </button>
+            <button class="btn btn-reset" onclick="resetFormulaire()" title="Réinitialiser">
+              <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <!-- fin col-saisie -->
+
+  <!-- ═══ COLONNE DROITE : HISTORIQUE ═══════════════════ -->
+  <div class="col-historique">
+
+    <div class="hist-header">
+      <h2>
+        <svg width="15" height="15" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.5" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Inventaire en cours
+      </h2>
+      <div class="hist-stats">
+        <div class="stat-box">
+          <div class="val" id="stat-articles">0</div>
+          <div class="lbl">Articles</div>
+        </div>
+        <div class="stat-box">
+          <div class="val" id="stat-unites">0</div>
+          <div class="lbl">Unités</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hist-scroll" id="hist-scroll">
+      <div class="hist-empty" id="hist-empty">
+        <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+        <br>Aucun article encore<br>enregistré
+      </div>
+    </div>
+
+    <div class="hist-exports">
+      <div class="btn-export-row">
+        <button class="btn-export btn-export-pdf" onclick="exporterPDF()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          PDF
+        </button>
+        <button class="btn-export btn-export-xl" onclick="exporterExcel()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Excel
+        </button>
+      </div>
+      <button onclick="viderInventaire()" style="background:rgba(230,57,70,0.08);border:1.5px solid rgba(230,57,70,0.2);color:rgba(230,57,70,0.7);border-radius:10px;padding:9px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;cursor:pointer;letter-spacing:.3px;transition:all .15s;width:100%">
+        🗑 Vider l'inventaire
+      </button>
+    </div>
+
+    <div class="ver">Inventaire Terrain v2.1 — GRDF BDSN</div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── ÉTAT ─────────────────────────────────────────────────
+let inventaire = JSON.parse(localStorage.getItem('inv_grdf_v2') || '[]');
+let photoActuelle = null;
+let imgOffsetX=0, imgOffsetY=0, imgW=0, imgH=0;
+let selectionActive=false, startX=0, startY=0;
+let ocrCount=0;
+
+// ─── INIT ─────────────────────────────────────────────────
+(function(){
+  const n=new Date();
+  document.getElementById('header-date').textContent=
+    n.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  rafraichir();
+})();
+
+// ─── CAMÉRA / GALERIE ─────────────────────────────────────
+function ouvrirCamera(){
+  const i=document.getElementById('input-camera');
+  i.setAttribute('capture','environment'); i.click();
+}
+function ouvrirGalerie(){
+  const i=document.getElementById('input-camera');
+  i.removeAttribute('capture'); i.click();
+}
+document.getElementById('input-camera').addEventListener('change',function(e){
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{ photoActuelle=ev.target.result; afficherPhoto(photoActuelle); };
+  r.readAsDataURL(f); this.value='';
+});
+
+function afficherPhoto(src){
+  const img=document.getElementById('photo-preview');
+  document.getElementById('ph-placeholder').style.display='none';
+  img.src=src; img.style.display='block';
+  document.getElementById('ocr-hint').style.display='block';
+  activerOCR();
+}
+
+// ─── OCR SÉLECTION ────────────────────────────────────────
+function activerOCR(){
+  const zone=document.getElementById('zone-photo');
+  const rect=document.getElementById('selection-rect');
+
+  const getXY=e=>{
+    const t=e.touches?e.touches[0]:e;
+    const zr=zone.getBoundingClientRect();
+    return { x:t.clientX-zr.left, y:t.clientY-zr.top };
+  };
+
+  zone.ontouchstart=zone.onmousedown=e=>{
+    e.preventDefault();
+    const {x,y}=getXY(e);
+    startX=x; startY=y; selectionActive=true;
+    rect.style.cssText=`display:block;left:${x}px;top:${y}px;width:0;height:0;`;
+
+    const imgEl=document.getElementById('photo-preview');
+    const zr=zone.getBoundingClientRect();
+    const sc=Math.min(zr.width/imgEl.naturalWidth,zr.height/imgEl.naturalHeight);
+    imgW=imgEl.naturalWidth*sc; imgH=imgEl.naturalHeight*sc;
+    imgOffsetX=(zr.width-imgW)/2; imgOffsetY=(zr.height-imgH)/2;
+  };
+  zone.ontouchmove=zone.onmousemove=e=>{
+    if(!selectionActive)return; e.preventDefault();
+    const {x,y}=getXY(e);
+    rect.style.left=Math.min(startX,x)+'px';
+    rect.style.top=Math.min(startY,y)+'px';
+    rect.style.width=Math.abs(x-startX)+'px';
+    rect.style.height=Math.abs(y-startY)+'px';
+  };
+  zone.ontouchend=zone.onmouseup=e=>{
+    if(!selectionActive)return; selectionActive=false;
+    const w=parseFloat(rect.style.width),h=parseFloat(rect.style.height);
+    if(w<15||h<10){rect.style.display='none';return;}
+    lancerOCR();
+  };
+}
+
+function lancerOCR(){
+  const rect=document.getElementById('selection-rect');
+  const imgEl=document.getElementById('photo-preview');
+  const status=document.getElementById('ocr-status');
+
+  const sx=parseFloat(rect.style.left)-imgOffsetX;
+  const sy=parseFloat(rect.style.top)-imgOffsetY;
+  const sw=parseFloat(rect.style.width);
+  const sh=parseFloat(rect.style.height);
+  const rx=imgEl.naturalWidth/imgW, ry=imgEl.naturalHeight/imgH;
+
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.round(sw*rx); canvas.height=Math.round(sh*ry);
+  canvas.getContext('2d').drawImage(imgEl,
+    Math.round(sx*rx),Math.round(sy*ry),canvas.width,canvas.height,
+    0,0,canvas.width,canvas.height);
+
+  status.style.display='block';
+  status.textContent='🔍 Analyse OCR en cours...';
+
+  const champ=choisirChamp();
+
+  Tesseract.recognize(canvas.toDataURL(),'fra+eng',{logger:()=>{}})
+    .then(({data:{text}})=>{
+      const propre=text.replace(/\n/g,' ').replace(/\s+/g,' ').trim();
+      if(propre.length>0){
+        document.getElementById('f-'+champ).value=propre;
+        document.getElementById('badge-'+champ).classList.add('on');
+        status.textContent=`✅ "${propre.substring(0,45)}${propre.length>45?'…':''}"`;
+        setTimeout(()=>status.style.display='none',3000);
+        toast('Texte reconnu → '+(champ==='nom'?'Désignation':'Marque'));
+      } else {
+        status.textContent='⚠️ Texte non reconnu — saisissez manuellement';
+        setTimeout(()=>status.style.display='none',3000);
+      }
+      rect.style.display='none';
+    }).catch(()=>{
+      status.textContent='❌ Erreur — saisissez manuellement';
+      setTimeout(()=>status.style.display='none',3000);
+      rect.style.display='none';
+    });
+}
+
+function choisirChamp(){
+  if(!document.getElementById('f-nom').value.trim()) return 'nom';
+  if(!document.getElementById('f-marque').value.trim()) return 'marque';
+  return (++ocrCount%2===1)?'nom':'marque';
+}
+
+// ─── AJOUTER ──────────────────────────────────────────────
+function ajouterArticle(){
+  const nom=document.getElementById('f-nom').value.trim();
+  if(!nom){toast('⚠️ La désignation est obligatoire');return;}
+  const art={
+    id:Date.now(),
+    nom, marque:document.getElementById('f-marque').value.trim(),
+    categorie:document.getElementById('f-categorie').value,
+    quantite:parseInt(document.getElementById('f-quantite').value)||1,
+    etat:document.getElementById('f-etat').value,
+    ref:document.getElementById('f-ref').value.trim(),
+    obs:document.getElementById('f-obs').value.trim(),
+    photo:photoActuelle,
+    heure:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
+  };
+  inventaire.push(art);
+  sauvegarder(); rafraichir(); resetFormulaire();
+  toast('✅ '+nom+' ajouté');
+}
+
+function resetFormulaire(){
+  ['f-nom','f-marque','f-ref','f-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-quantite').value='1';
+  document.getElementById('f-etat').value='Bon';
+  ['badge-nom','badge-marque'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  photoActuelle=null; ocrCount=0;
+  document.getElementById('photo-preview').style.display='none';
+  document.getElementById('ph-placeholder').style.display='flex';
+  document.getElementById('ocr-hint').style.display='none';
+  document.getElementById('selection-rect').style.display='none';
+  document.getElementById('ocr-status').style.display='none';
+}
+
+// ─── HISTORIQUE ───────────────────────────────────────────
+function rafraichir(){
+  const total=inventaire.reduce((s,a)=>s+a.quantite,0);
+  document.getElementById('chip-count').textContent=inventaire.length+' article'+(inventaire.length>1?'s':'');
+  document.getElementById('stat-articles').textContent=inventaire.length;
+  document.getElementById('stat-unites').textContent=total;
+
+  const scroll=document.getElementById('hist-scroll');
+  const empty=document.getElementById('hist-empty');
+
+  if(!inventaire.length){ empty.style.display='block'; return; }
+  empty.style.display='none';
+
+  // On reconstruit les cartes
+  const existing=scroll.querySelectorAll('.hist-card');
+  existing.forEach(e=>e.remove());
+
+  [...inventaire].reverse().forEach(a=>{
+    const card=document.createElement('div');
+    card.className='hist-card';
+    card.dataset.id=a.id;
+    card.innerHTML=`
+      <div class="hist-thumb">
+        ${a.photo?`<img src="${a.photo}" alt="">`:'📦'}
+      </div>
+      <div class="hist-info">
+        <div class="hist-nom">${esc(a.nom)}</div>
+        <div class="hist-marque">${esc(a.marque||'—')} · ${esc(a.categorie)}</div>
+        <div class="hist-bottom">
+          <span class="hist-qte">× ${a.quantite}</span>
+          <span class="hist-etat ${a.etat==='Bon'?'bon':a.etat==='Moyen'?'moyen':'hs'}">${esc(a.etat)}</span>
+        </div>
+      </div>
+      <button class="hist-del" onclick="supprimerArticle(${a.id});event.stopPropagation()">✕</button>
+    `;
+    scroll.appendChild(card);
+  });
+}
+
+function supprimerArticle(id){
+  inventaire=inventaire.filter(a=>a.id!==id);
+  sauvegarder(); rafraichir();
+  toast('Article supprimé');
+}
+function viderInventaire(){
+  if(!inventaire.length){toast('Inventaire déjà vide');return;}
+  if(!confirm('Vider tout l\'inventaire ?'))return;
+  inventaire=[]; sauvegarder(); rafraichir(); toast('Inventaire vidé');
+}
+
+// ─── SAUVEGARDE ───────────────────────────────────────────
+function sauvegarder(){
+  try { localStorage.setItem('inv_grdf_v2',JSON.stringify(inventaire)); }
+  catch(e) {
+    const sp=inventaire.map(a=>({...a,photo:null}));
+    localStorage.setItem('inv_grdf_v2',JSON.stringify(sp));
+  }
+}
+
+// ─── EXPORT EXCEL ─────────────────────────────────────────
+function exporterExcel(){
+  if(!inventaire.length){toast('⚠️ Inventaire vide');return;}
+  const date=new Date().toLocaleDateString('fr-FR');
+  const data=[
+    ['INVENTAIRE TERRAIN — GRDF Agence Boucles de Seine Nord'],
+    ['Date :',date],[''],
+    ['N°','Désignation','Marque','Catégorie','Quantité','État','Référence','Observations']
+  ];
+  inventaire.forEach((a,i)=>data.push([i+1,a.nom,a.marque||'',a.categorie,a.quantite,a.etat,a.ref||'',a.obs||'']));
+  data.push([''],['','TOTAL ARTICLES :',inventaire.length,'','TOTAL UNITÉS :',inventaire.reduce((s,a)=>s+a.quantite,0)]);
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:4},{wch:32},{wch:18},{wch:20},{wch:10},{wch:12},{wch:18},{wch:30}];
+  XLSX.utils.book_append_sheet(wb,ws,'Inventaire');
+  XLSX.writeFile(wb,`Inventaire_GRDF_${date.replace(/\//g,'-')}.xlsx`);
+  toast('✅ Export Excel généré');
+}
+
+// ─── EXPORT PDF ───────────────────────────────────────────
+async function exporterPDF(){
+  if(!inventaire.length){toast('⚠️ Inventaire vide');return;}
+  toast('⏳ Génération du PDF...');
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const dStr=new Date().toLocaleDateString('fr-FR');
+  const pW=210,m=14;
+
+  doc.setFillColor(11,22,48); doc.rect(0,0,pW,30,'F');
+  doc.setFillColor(245,130,10); doc.rect(0,28,pW,2,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.text('INVENTAIRE TERRAIN',m,13);
+  doc.setFontSize(9.5); doc.setFont('helvetica','normal');
+  doc.text('GRDF — Agence Boucles de Seine Nord',m,20);
+  doc.text('Date : '+dStr,pW-m,20,{align:'right'});
+
+  const totalQ=inventaire.reduce((s,a)=>s+a.quantite,0);
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(0,49,137);
+  doc.text(`${inventaire.length} article(s)  ·  ${totalQ} unité(s) au total`,m,38);
+
+  let y=44;
+  const cols=[14,56,90,118,148,162];
+  const headers=['Photo','Désignation','Marque','Catégorie','Qté','État'];
+  doc.setFillColor(11,22,48); doc.rect(m,y,pW-m*2,8,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(8.5); doc.setFont('helvetica','bold');
+  headers.forEach((h,i)=>doc.text(h,cols[i]+1,y+5.5));
+  y+=9;
+
+  for(let i=0;i<inventaire.length;i++){
+    const a=inventaire[i]; const rH=22;
+    if(y+rH>282){
+      doc.addPage();y=14;
+      doc.setFillColor(11,22,48); doc.rect(m,y,pW-m*2,8,'F');
+      doc.setTextColor(255,255,255); doc.setFontSize(8.5); doc.setFont('helvetica','bold');
+      headers.forEach((h,j)=>doc.text(h,cols[j]+1,y+5.5)); y+=9;
+    }
+    if(i%2===0){doc.setFillColor(244,246,251); doc.rect(m,y,pW-m*2,rH,'F');}
+    doc.setTextColor(17,24,39);
+    if(a.photo){ try{ doc.addImage(a.photo,'JPEG',cols[0],y+1,18,18); }catch(e){} }
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+    const nLines=a.nom.length>28?[a.nom.substring(0,28),a.nom.substring(28,56)]:[a.nom];
+    nLines.forEach((l,j)=>doc.text(l,cols[1]+1,y+5.5+j*4));
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.text(String(a.marque||'—'),cols[2]+1,y+5.5);
+    doc.text(String(a.categorie),cols[3]+1,y+5.5);
+    doc.text(String(a.quantite),cols[4]+4,y+5.5,{align:'center'});
+    const ec=a.etat==='Bon'?[24,201,122]:a.etat==='Moyen'?[245,130,10]:[230,57,70];
+    doc.setTextColor(...ec); doc.setFont('helvetica','bold');
+    doc.text(a.etat,cols[5]+1,y+5.5);
+    if(a.obs){ doc.setTextColor(120,130,160); doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.text('→ '+a.obs.substring(0,60),cols[1]+1,y+rH-3); }
+    doc.setDrawColor(221,226,239); doc.line(m,y+rH,pW-m,y+rH);
+    y+=rH;
+  }
+  y+=6;
+  doc.setFillColor(11,22,48); doc.rect(m,y,pW-m*2,9,'F');
+  doc.setFillColor(245,130,10); doc.rect(m,y+9,pW-m*2,1.5,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','bold');
+  doc.text(`TOTAL : ${inventaire.length} article(s) — ${totalQ} unité(s)`,m+2,y+6);
+  doc.text('Inventaire Terrain v2.0',pW-m,y+6,{align:'right'});
+  doc.save(`Inventaire_GRDF_${dStr.replace(/\//g,'-')}.pdf`);
+  toast('✅ PDF généré');
+}
+
+// ─── UTILS ────────────────────────────────────────────────
+let toastT;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2800);
+}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+</script>
+</body>
+</html>
