@@ -308,6 +308,31 @@
     border-radius: 6px;
   }
   .btn-suppr:active { background: #ffe0e0; }
+  .btn-edit {
+    background: none; border: none;
+    color: var(--bleu-clair); font-size: 16px;
+    cursor: pointer; padding: 4px 8px;
+    border-radius: 6px;
+  }
+  .btn-edit:active { background: #dfeaff; }
+  .cell-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  .edit-status {
+    display: none;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #eef4ff;
+    border: 1px solid #bfd2ff;
+    color: var(--bleu);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .edit-status.visible { display: block; }
 
   /* EXPORTS */
   .export-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -385,7 +410,6 @@
   <div class="badge-count" id="badge-count">0 article</div>
 </header>
 
-<!-- ÉTAPE 1 : PHOTO + OCR -->
 <div class="section">
   <div class="section-title">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -435,7 +459,6 @@
   </div>
 </div>
 
-<!-- ÉTAPE 2 : FORMULAIRE -->
 <div class="section">
   <div class="section-title">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -496,11 +519,11 @@
       </div>
 
       <div style="display:flex;gap:10px;margin-top:4px">
-        <button class="btn btn-vert btn-full" onclick="ajouterArticle()">
+        <button class="btn btn-vert btn-full" id="btn-submit-article" onclick="enregistrerArticle()">
           <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
           Ajouter à l'inventaire
         </button>
-        <button class="btn btn-secondary" onclick="resetFormulaire()" style="flex:0;padding:13px 16px">
+        <button class="btn btn-secondary" onclick="annulerEditionOuReset()" style="flex:0;padding:13px 16px">
           <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
         </button>
       </div>
@@ -509,7 +532,6 @@
   </div>
 </div>
 
-<!-- RÉCAP -->
 <div class="section">
   <div class="section-title">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
@@ -543,7 +565,6 @@
   </div>
 </div>
 
-<!-- EXPORTS -->
 <div class="section">
   <div class="section-title">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -571,17 +592,70 @@
 <div id="toast"></div>
 
 <script>
-// ─── ÉTAT ────────────────────────────────────────────────
-let inventaire = JSON.parse(localStorage.getItem('inventaire_grdf') || '[]');
+// ─── ÉTAT & BASE DE DONNÉES (IndexedDB) ───────────────────
+let inventaire = [];
 let photoActuelle = null; // base64 de la photo en cours
 let photoActuelleBlob = null;
+let db;
+let articleEnEditionId = null;
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("InventaireGRDF_DB", 1);
+    request.onupgradeneeded = function(e) {
+      db = e.target.result;
+      if (!db.objectStoreNames.contains('articles')) {
+        db.createObjectStore('articles', { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = function(e) {
+      db = e.target.result;
+      
+      // Migration automatique : si des données existent dans le vieux localStorage, on les transfère
+      const oldData = localStorage.getItem('inventaire_grdf');
+      if (oldData) {
+         try {
+           const oldInventaire = JSON.parse(oldData);
+           if (oldInventaire.length > 0) {
+             const transaction = db.transaction(['articles'], 'readwrite');
+             const store = transaction.objectStore('articles');
+             oldInventaire.forEach(art => store.put(art));
+           }
+           localStorage.removeItem('inventaire_grdf'); // On nettoie le vieux stockage
+         } catch(err) {
+           console.error("Erreur de migration", err);
+         }
+      }
+
+      // Chargement de l'inventaire depuis IndexedDB
+      const transaction = db.transaction(['articles'], 'readonly');
+      const store = transaction.objectStore('articles');
+      const req = store.getAll();
+      req.onsuccess = function() {
+        inventaire = req.result || [];
+        rafraichirTableau();
+        resolve();
+      };
+    };
+    request.onerror = function(e) {
+      console.error("Erreur d'ouverture IndexedDB", e);
+      reject(e);
+    };
+  });
+}
 
 // ─── INIT ─────────────────────────────────────────────────
-(function init() {
+(async function init() {
   const now = new Date();
   document.getElementById('header-date').textContent =
     now.toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
-  rafraichirTableau();
+  
+  try {
+    await initDB();
+  } catch (e) {
+    console.error("Impossible d'initialiser la base de données.");
+    rafraichirTableau(); // Fallback
+  }
 })();
 
 // ─── CAMÉRA ───────────────────────────────────────────────
@@ -642,9 +716,9 @@ function synchroniserPanneauOCR() {
   const nomPreview = document.getElementById('ocr-preview-nom');
   const marquePreview = document.getElementById('ocr-preview-marque');
 
-  nomPreview.textContent = nom || 'DÃ©signation Ã  capturer';
+  nomPreview.textContent = nom || 'Désignation à capturer';
   nomPreview.classList.toggle('empty', !nom);
-  marquePreview.textContent = marque || 'Marque Ã  capturer';
+  marquePreview.textContent = marque || 'Marque à capturer';
   marquePreview.classList.toggle('empty', !marque);
 }
 
@@ -792,7 +866,11 @@ function ajouterArticle() {
   };
 
   inventaire.push(article);
-  sauvegarder();
+  
+  // Sauvegarde dans IndexedDB
+  const transaction = db.transaction(['articles'], 'readwrite');
+  transaction.objectStore('articles').put(article);
+
   rafraichirTableau();
   resetFormulaire();
   toast('✅ Article ajouté à l\'inventaire');
@@ -857,7 +935,11 @@ function esc(str) {
 
 function supprimerArticle(id) {
   inventaire = inventaire.filter(a => a.id !== id);
-  sauvegarder();
+  
+  // Suppression dans IndexedDB
+  const transaction = db.transaction(['articles'], 'readwrite');
+  transaction.objectStore('articles').delete(id);
+
   rafraichirTableau();
   toast('Article supprimé');
 }
@@ -865,24 +947,17 @@ function supprimerArticle(id) {
 function viderInventaire() {
   if (!inventaire.length) { toast('Inventaire déjà vide'); return; }
   if (!confirm('Vider tout l\'inventaire ? Cette action est irréversible.')) return;
+  
   inventaire = [];
-  sauvegarder();
+  
+  // Nettoyage dans IndexedDB
+  const transaction = db.transaction(['articles'], 'readwrite');
+  transaction.objectStore('articles').clear();
+
   rafraichirTableau();
   toast('Inventaire vidé');
 }
 
-// ─── SAUVEGARDE localStorage ──────────────────────────────
-function sauvegarder() {
-  // On sauvegarde sans les photos (trop lourd) — on garde juste les données
-  // Pour les photos, on les garde quand même (utile pour le PDF)
-  try {
-    localStorage.setItem('inventaire_grdf', JSON.stringify(inventaire));
-  } catch(e) {
-    // Si trop lourd (photos), on sauvegarde sans photos
-    const sansPhoots = inventaire.map(a => ({ ...a, photo: null }));
-    localStorage.setItem('inventaire_grdf', JSON.stringify(sansPhoots));
-  }
-}
 
 // ─── EXPORT EXCEL ─────────────────────────────────────────
 function exporterExcel() {
@@ -1497,6 +1572,158 @@ resetFormulaire = function() {
   photoZoomNiveau = 0;
   setModeSelectionPhoto('ocr');
 };
+
+function getEditStatusElement() {
+  let el = document.getElementById('edit-status');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'edit-status';
+    el.className = 'edit-status';
+    const actions = document.getElementById('btn-submit-article')?.parentElement;
+    if (actions && actions.parentElement) {
+      actions.insertAdjacentElement('afterend', el);
+    }
+  }
+  return el;
+}
+
+function getSubmitLabelElement() {
+  let label = document.getElementById('btn-submit-label');
+  if (label) return label;
+
+  const button = document.getElementById('btn-submit-article');
+  if (!button) return null;
+
+  const existingTextNodes = Array.from(button.childNodes).filter(
+    (node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim()
+  );
+  existingTextNodes.forEach((node) => button.removeChild(node));
+
+  label = document.createElement('span');
+  label.id = 'btn-submit-label';
+  label.textContent = "Ajouter a l'inventaire";
+  button.appendChild(label);
+  return label;
+}
+
+function mettreAJourModeEdition(article) {
+  const status = getEditStatusElement();
+  const label = getSubmitLabelElement();
+  if (article) {
+    status.textContent = 'Modification en cours : ' + article.nom + '. Enregistrez pour mettre la fiche a jour.';
+    status.classList.add('visible');
+    if (label) label.textContent = 'Enregistrer les modifications';
+    return;
+  }
+  status.textContent = '';
+  status.classList.remove('visible');
+  if (label) label.textContent = "Ajouter a l'inventaire";
+}
+
+function enregistrerArticle() {
+  const nom = document.getElementById('f-nom').value.trim();
+  const marque = document.getElementById('f-marque').value.trim();
+  const categorie = document.getElementById('f-categorie').value;
+  const quantite = parseInt(document.getElementById('f-quantite').value, 10) || 1;
+  const etat = document.getElementById('f-etat').value;
+  const ref = document.getElementById('f-ref').value.trim();
+  const obs = document.getElementById('f-obs').value.trim();
+
+  if (!nom) { toast('Saisissez une designation'); return; }
+
+  const indexEdition = inventaire.findIndex((a) => a.id === articleEnEditionId);
+  const articleExistant = indexEdition >= 0 ? inventaire[indexEdition] : null;
+  const article = {
+    id: articleExistant ? articleExistant.id : Date.now(),
+    nom, marque, categorie, quantite, etat, ref, obs,
+    photo: photoActuelle,
+    date: articleExistant ? articleExistant.date : new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })
+  };
+
+  if (articleExistant) {
+    inventaire[indexEdition] = article;
+  } else {
+    inventaire.push(article);
+  }
+
+  const transaction = db.transaction(['articles'], 'readwrite');
+  transaction.objectStore('articles').put(article);
+
+  rafraichirTableau();
+  resetFormulaire();
+  toast(articleExistant ? 'Article modifie' : "Article ajoute a l'inventaire");
+}
+
+function modifierArticle(id) {
+  const article = inventaire.find((a) => a.id === id);
+  if (!article) {
+    toast('Article introuvable');
+    return;
+  }
+
+  articleEnEditionId = id;
+  document.getElementById('f-nom').value = article.nom || '';
+  document.getElementById('f-marque').value = article.marque || '';
+  document.getElementById('f-categorie').value = article.categorie || 'Autre';
+  document.getElementById('f-quantite').value = article.quantite || 1;
+  document.getElementById('f-etat').value = article.etat || 'Bon';
+  document.getElementById('f-ref').value = article.ref || '';
+  document.getElementById('f-obs').value = article.obs || '';
+  photoActuelle = article.photo || null;
+
+  if (photoActuelle) {
+    afficherPhoto(photoActuelle);
+  }
+
+  synchroniserPanneauOCR();
+  mettreAJourModeEdition(article);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  toast('Vous pouvez maintenant modifier cette fiche');
+}
+
+function annulerEditionOuReset() {
+  if (articleEnEditionId !== null) {
+    toast('Modification annulee');
+  }
+  resetFormulaire();
+}
+
+const resetFormulaireAvecEditionOriginal = resetFormulaire;
+resetFormulaire = function() {
+  articleEnEditionId = null;
+  resetFormulaireAvecEditionOriginal();
+  document.getElementById('f-categorie').selectedIndex = 0;
+  mettreAJourModeEdition(null);
+};
+
+const rafraichirTableauAvecEditionOriginal = rafraichirTableau;
+rafraichirTableau = function() {
+  rafraichirTableauAvecEditionOriginal();
+  const lignes = document.querySelectorAll('#tbody-recap tr');
+  lignes.forEach((ligne) => {
+    if (ligne.querySelector('.empty-state')) return;
+    const boutonSuppr = ligne.querySelector('.btn-suppr');
+    if (!boutonSuppr || ligne.querySelector('.btn-edit')) return;
+    const idMatch = boutonSuppr.getAttribute('onclick')?.match(/\d+/);
+    if (!idMatch) return;
+
+    const cell = boutonSuppr.parentElement;
+    cell.classList.add('cell-actions');
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-edit';
+    editBtn.type = 'button';
+    editBtn.title = 'Modifier';
+    editBtn.textContent = 'M';
+    editBtn.onclick = () => modifierArticle(Number(idMatch[0]));
+    cell.insertBefore(editBtn, boutonSuppr);
+  });
+};
+
+const submitLabel = getSubmitLabelElement();
+if (submitLabel) submitLabel.textContent = "Ajouter a l'inventaire";
+document.querySelector('#tableau-recap thead tr th:last-child').textContent = 'Actions';
+rafraichirTableau();
 
 let toastTimer;
 function toast(msg) {
